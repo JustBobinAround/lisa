@@ -19,14 +19,36 @@
 # Important Feature Ideas Up Front
 This is still an early project and is subject to heavy change...
 ### JIT Cloning
-When a non-mutable reference is passed into a function, it has an change
-order. If a function on a separate attempts to change the value, the current
+When a non-mutable reference is passed into a function, it has a change
+order. If a function on a separate thread attempts to change the value, the current
 memory location will split. This allows for the variable to remain in the
-same memory location for as long as possible. A drop also counts as a mutation.
-In this way, a variable that is non-mutable will always exist for its current
-scope.
+same memory location for as long as possible which may avoid a clone all
+together. A drop also counts as a mutation. In this way, a variable that is
+non-mutable in separate scope will always exist and remain the same for its
+current scope.
 
-This might just be a GC strategy lol idk.
+This is something I just came up with while mowing the lawn today i.e. it might
+be a GC strategy or something that already exists lol idk.
+
+Just like rust, variables are always dropped at the end of their scope.
+
+With functionality like this, I'm wondering if it would be possible to split
+work into threads until a variable is needed. Basically this would allow for
+automatic async scheduling. For instance:
+```
+([int]) -> int {
+    //doing a lot of stuff in here
+}(a_big_array).as(temp_variable);
+
+// do other stuff
+
+*0.as(some_other);
+
+*some_other += temp_variable; // implied await
+
+
+//
+```
 
 ### Functional Declarations
 Variables are declared via `as(NAME)` function which is accessible to all types.
