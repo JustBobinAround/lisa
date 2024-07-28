@@ -50,6 +50,11 @@ automatic async scheduling. For instance:
 //
 ```
 
+### Reason for the weird function design
+Functions are designed to always have "one" parameter type and one output type
+so that static analysis can produce a graph of all types to perform type
+searches for code synthesis.
+
 ### Functional Declarations
 Variables are declared via `as(NAME)` function which is accessible to all types.
 ```
@@ -61,15 +66,20 @@ some_variable == 0; // true
 ### Mutability 
 Each type has a mutable sibling type that is declared with the `*` symbol
 preceding the actual type. This creates a mutable reference that is handled as
-a smart pointer. There are no raw pointers in LISA; sorry low-level nerds.
+a smart pointer. There are no raw pointers in LISA; sorry low-level nerds. Declaration
+with `*` allows the ability to use `*` but is still not mutable until declared
+so in its instance. This is to allow for better async scheduling by forcing multi
+reads and singular writes.
 ```
-0.as("var_a");
+0.as(var_a);
 
 var_a += 1; // <-- not allowed
+*var_a += 1; // <-- allowed, but not shared between scopes
+**var_a += 1; // <-- not allowed, mut use as_shared() method
 
-*3.as("var_b");
+3.as_shared(var_b);
 
- += 1; // <-- allowed
+**var_b += 1; // <-- shared variables may only be mutated when denoted with **
 ```
 
 ### Shared Memory Via Chaining
@@ -79,31 +89,34 @@ will all share memory even between threads. These declarations all use RwLocks,
 so be careful to avoid race conditions when using this functionality. USE WITH
 CAUTION
 ```
-*1.as("var_a")
-  .as("var_b");
+1.as_shared(var_a)
+  .as_shared(var_b);
 
-*var_a += var_b;  
+**var_a += var_b;  
 
 // var_a==2
 // var_b==2
 ```
 
-### Avoiding Shared Memory
-Sharing memory saves on performance, especially with large data types like
-arrays, but sometimes a cloned value is preferred; simply don't use *;
+### locking shared memory to current value without full clone (JIT clone)
 ```
-*1.as("var_a")
-  .as("var_b");
+1.as_shared(var_a)
+ .as_shared(var_b);
+ .as(var_c); // var_c is a reference here
 
-// no * is used; this is a clone operation
-var_b.as("var_c");
 
-*var_a += var_b;  
+**var_a += var_b; // var_c is independent here 
 
-// var_a==2
-// var_b==2
+var_a.as(var_d); // var_d is a reference here
+
+**var_a += var_b; // var_d is independent here
+
+// var_a==4
+// var_b==4
 // var_c==1
+// var_d==2
 ```
+
 
 ### Type Extension
 - Types can be built off of each other. 
