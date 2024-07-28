@@ -8,14 +8,17 @@ pub enum Operator {
     AddAssign,
     Mul,
     MulAssign,
-    Pow,
-    PowAssign,
     Div,
     DivAssign,
     Mod,
     ModAssign,
     Not,
     Eq,
+    Neq,
+    Gt,
+    Lt,
+    GtEq,
+    LtEq,
     BitXor,
     And,
     BitAnd,
@@ -32,7 +35,8 @@ pub enum Token {
     Float(f64),
     String(String),
     Identifier(String),
-    Keyword(String),
+    If,
+    Else,
     Operator(Operator),
     Arrow,
     Comma,
@@ -47,6 +51,8 @@ pub enum Token {
     RightBracket,
     EOF,
     Param,
+    Mut,
+    SharedMut,
     Macro,
     Invalid(char),
 }
@@ -83,6 +89,24 @@ impl<'a> Lexer<'a> {
                     }
                     continue;
                 }
+                '>' => {
+                    self.advance();
+                    if self.current_char.is_some_and(|c|c=='='){
+                        self.advance();
+                        return Token::Operator(Operator::GtEq);
+                    } else {
+                        return Token::Operator(Operator::Gt);
+                    }
+                },
+                '<' => {
+                    self.advance();
+                    if self.current_char.is_some_and(|c|c=='='){
+                        self.advance();
+                        return Token::Operator(Operator::LtEq);
+                    } else {
+                        return Token::Operator(Operator::Lt);
+                    }
+                },
                 '(' => return self.consume(Token::LeftParen),
                 ')' => return self.consume(Token::RightParen),
                 '{' => return self.consume(Token::LeftBrace),
@@ -90,8 +114,8 @@ impl<'a> Lexer<'a> {
                 '[' => return self.consume(Token::LeftBracket),
                 ']' => return self.consume(Token::RightBracket),
                 ',' => return self.consume(Token::Comma),
-                '.' => return self.consume(Token::Comma),
-                ':' => return self.consume(Token::Period),
+                '.' => return self.consume(Token::Period),
+                ':' => return self.consume(Token::Colon),
                 ';' => return self.consume(Token::Semicolon),
                 '-' => {
                     if self.peek() == Some('>') {
@@ -119,18 +143,22 @@ impl<'a> Lexer<'a> {
                         return Token::Operator(Operator::Add);
                     }
                 }
+                '~' => {
+                    self.advance();
+                    if self.current_char.is_some_and(|c|c=='~'){
+                        self.advance();
+                        return Token::SharedMut;
+                    } else {
+                        return Token::Mut;
+                    }
+                }
                 '*' => {
                     self.advance();
-                    if self.current_char.is_some_and(|c|c=='*'){
+                    if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::Pow);
+                        return Token::Operator(Operator::MulAssign);
                     } else {
-                        if self.current_char.is_some_and(|c|c=='='){
-                            self.advance();
-                            return Token::Operator(Operator::MulAssign);
-                        } else {
-                            return Token::Operator(Operator::Mul);
-                        }
+                        return Token::Operator(Operator::Mul);
                     }
                 }
                 '/' => {
@@ -153,7 +181,12 @@ impl<'a> Lexer<'a> {
                 }
                 '!' => {
                     self.advance();
-                    return Token::Operator(Operator::Not);
+                    if self.current_char.is_some_and(|c|c=='='){
+                        self.advance();
+                        return Token::Operator(Operator::Neq);
+                    } else {
+                        return Token::Operator(Operator::Not);
+                    }
                 }
                 '=' => {
                     self.advance();
@@ -280,6 +313,8 @@ impl<'a> Lexer<'a> {
             }
         }
         match ident.as_str() {
+            "if" => Token::If,
+            "else" => Token::Else,
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
             "None" => Token::None,
