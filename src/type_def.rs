@@ -43,7 +43,7 @@ impl Type {
                 type_def.clone()
                     .deref()
                     .clone()
-                    .hash_structure(state); // once again, hate rust sometimes
+                    .hash_structure(state); // once again, I hate rust sometimes
             }
             None => {
                 "None".hash(state);

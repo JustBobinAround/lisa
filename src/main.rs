@@ -40,6 +40,11 @@ fn main() {
         TypeC: TypeB;
         TypeD: TypeA;
         TypeE: TypeD;
+        (TypeE) -> uint {
+            0.as(test);
+        }.test(None)
+         .as(test)
+         .as_shared(asdf);
     "#;
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);

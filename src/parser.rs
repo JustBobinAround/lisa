@@ -21,7 +21,7 @@ impl<'a> Parser<'a> {
         Parser { lexer, current_token, type_sig_map: HashMap::new(), type_name_map: HashMap::new() }
     }
 
-    fn add_key(&mut self, sig: u64, name:String, type_def: Type) -> Arc<Type>{
+    fn add_key(&mut self, sig: u64, name:Option<String>, type_def: Type) -> Arc<Type>{
         let t = if let Some(t) = self.type_sig_map.get(&sig) {
             t.clone()
         } else {
@@ -29,7 +29,9 @@ impl<'a> Parser<'a> {
             self.type_sig_map.insert(sig, t.clone());
             t
         };
-        self.type_name_map.insert(name, sig);
+        if let Some(name) = name {
+            self.type_name_map.insert(name, sig);
+        }
         t
     }
 
@@ -55,53 +57,106 @@ impl<'a> Parser<'a> {
     pub fn parse_main(&mut self) -> Result<Expr, ParseError> {
         let mut exprs = Vec::new();
         while self.current_token != Token::EOF {
-            exprs.push(self.parse_expr()?);
+            println!("a");
+            let expr = self.parse_expr()?;
+            println!(">>>>>>>{:?}", self.current_token);
+            match self.current_token {
+                Token::Semicolon => {
+                    self.advance();
+                    exprs.push(expr);
+;               }
+                Token::Operator(ref op) => {
+                    let bop = op.clone();
+                    self.advance();
+                    match bop.as_ref() {
+                        Operator::Not => {
+                            let expr = self.parse_expr()?;
+                            exprs.push(Expr::UnaryOp { op: bop, expr: expr.into()})
+                        }
+                        //maybe mut should be uniary op?
+                        //
+                        _ => {
+                            let right = self.parse_expr()?;
+                            exprs.push(Expr::BinaryOp { left: expr.into(), op: bop, right: right.into() })
+                        }
+                    }
+                }
+                _ => {
+                }
+            }
         }
         Ok(Expr::Block(exprs))
     }
 
     fn parse_block(&mut self) -> Result<Expr, ParseError> {
         let mut exprs = Vec::new();
-        self.expect(Token::LeftBrace)?;
-        while self.current_token != Token::RightBrace && self.current_token != Token::EOF {
+        self.expect(Token::LeftBracket)?;
+        while self.current_token != Token::RightBracket && self.current_token != Token::EOF {
             exprs.push(self.parse_expr()?);
         }
-        self.expect(Token::RightBrace)?;
+        self.expect(Token::RightBracket)?;
         Ok(Expr::Block(exprs))
     }
 
     fn parse_expr(&mut self) -> Result<Expr, ParseError> {
-        match &self.current_token {
-            Token::LeftParen => {
+        match self.current_token {
+            Token::TNone => {
                 self.advance();
-                match self.current_token {
-                    Token::Identifier(_) => {
-                        self.advance();
-                        match self.current_token {
-                            _ => {
-            println!("hit15");
-                                Err(ParseError::UnexpectedToken(self.current_token.clone()))
-                            }
-                        }
-                    }
-                    Token::RightParen => {
-                        self.advance();
-                        match self.current_token {
-                            Token::Semicolon => {
-                                Ok(Expr::None)
-                            }
-                            _ => {
-            println!("hit16");
-                                Err(ParseError::UnexpectedToken(self.current_token.clone()))
-                            }
-                        }
-                    }
-                    _ => {
-                        self.parse_expr()
-                    }
-                }
-            }
-            Token::Identifier(name) => {
+                Ok(Expr::Type(Type::None))
+            },
+            Token::TBool => {
+                self.advance();
+                Ok(Expr::Type(Type::Bool))
+            },
+            Token::TInt => {
+                self.advance();
+                Ok(Expr::Type(Type::Int))
+            },
+            Token::TUint => {
+                self.advance();
+                Ok(Expr::Type(Type::Uint))
+            },
+            Token::TChar => {
+                self.advance();
+                Ok(Expr::Type(Type::Char))
+            },
+            Token::TFloat => {
+                self.advance();
+                Ok(Expr::Type(Type::Float))
+            },
+            Token::TString => {
+                self.advance();
+                Ok(Expr::Type(Type::String))
+            },
+            Token::LeftParen => {
+                self.parse_fn()
+            },
+            Token::Bool(b) => {
+                self.advance();
+                Ok(Expr::Bool(b.to_owned()))
+            },
+            Token::Int(i) => {
+                self.advance();
+                Ok(Expr::Int(i.to_owned()))
+            },
+            Token::Uint(u) => {
+                self.advance();
+                Ok(Expr::Uint(u.to_owned()))
+            },
+            Token::Char(c) => {
+                self.advance();
+                Ok(Expr::Char(c.to_owned()))
+            },
+            Token::Float(f) => {
+                self.advance();
+                Ok(Expr::Float(f.to_owned()))
+            },
+            Token::String(ref s) => {
+                let b = s.clone();
+                self.advance();
+                Ok(Expr::String(b))
+            },
+            Token::Identifier(ref name) => {
                 let b = name.clone();
                 self.advance();
                 match self.current_token {
@@ -119,25 +174,108 @@ impl<'a> Parser<'a> {
                                         Ok(t)
                                     }
                                     _ => {
-            println!("hit17");
+                                        println!("hit17");
                                         Err(ParseError::UnexpectedToken(self.current_token.clone()))
                                     }
                                 }
-
                             }
                         }
                     }
                     _ => {
-            println!("hit18");
-                        Err(ParseError::UnexpectedToken(self.current_token.clone()))
+                        Ok(Expr::Identifier(b))
                     }
                 }
             }
-
+            Token::Period => {
+                self.advance();
+                self.parse_fn_call()
+            }
             _ => {
             println!("hit19");
                 Err(ParseError::UnexpectedToken(self.current_token.clone()))
             }
+        }
+    }
+    fn parse_mut_assign(&mut self)  -> Result<Expr, ParseError> {
+        unimplemented!("don't know how I should do this yet");
+    }
+    fn parse_fn_call(&mut self) -> Result<Expr, ParseError> {
+        match self.current_token {
+            Token::Identifier(ref name) => {
+                let b = name.clone();
+                self.advance();
+                self.expect(Token::LeftParen)?;
+                println!("hita");
+                let expr = if &*b=="as" {
+                    self.parse_assignment(false)?
+                }else if &*b=="as_shared" {
+                    self.parse_assignment(true)?
+                } else {
+                    let expr = self.parse_expr()?;
+                    Expr::FunctionCall{name: b, arg: Box::new(expr)}
+                };
+                println!("hitb");
+                self.expect(Token::RightParen)?;
+                Ok(expr)
+            }
+            _ => {
+                Err(ParseError::UnexpectedToken(self.current_token.clone()))
+            }
+        }
+    }
+
+    fn parse_fn(&mut self) -> Result<Expr, ParseError> {
+        self.advance();
+        let param_sig = match self.current_token {
+            Token::Identifier(ref name) => {
+                let b = name.clone();
+                self.advance();
+                if let Some(t) = self.type_name_map.get(&**b){
+                    *t
+                } else {
+                    println!("hit123");
+                    return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+                }
+            }
+            _ => {
+                let mut param_type = self.parse_type(false)?;
+                param_type.get_sig()
+            }
+        };
+        println!("{:?}", self.current_token);
+        self.expect(Token::RightParen)?;
+        self.expect(Token::Arrow)?;
+        let return_sig = match &self.current_token {
+            Token::Identifier(name) => {
+                if let Some(t) = self.type_name_map.get(&**name){
+                    *t
+                } else {
+                    return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+                }
+            }
+            _ => {
+                let mut return_type = self.parse_type(false)?;
+                return_type.get_sig()
+            }
+        };
+        let block = self.parse_block()?;
+        match self.current_token {
+            Token::Semicolon => {
+                Ok(Expr::Function { param_sig, return_sig, block: Box::new(block) })
+            },
+            Token::Period => {
+                Ok(Expr::Function { param_sig, return_sig, block: Box::new(block) })
+            },
+            Token::Colon => {
+                unimplemented!("type extention");
+            },
+            Token::LeftParen=> {
+                unimplemented!("function call");
+            },
+            _ => {
+                return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+            }
+
         }
     }
 
@@ -271,7 +409,7 @@ impl<'a> Parser<'a> {
             }
 
             _ => {
-                        println!("hit3");
+                println!("hit3");
                 Err(ParseError::UnexpectedToken(self.current_token.clone()))
             }
         }
@@ -281,47 +419,40 @@ impl<'a> Parser<'a> {
         let mut t = self.parse_type(false)?;
         let sig = t.get_sig();
         println!(">>>{:?}", self.type_sig_map);
-        let ptr_t = self.add_key(sig,name.to_string(), t.clone());
+        let ptr_t = self.add_key(sig,Some(name.to_string()), t.clone());
         Ok(Expr::Type(Type::TypeDef { name, type_def: ptr_t }))
     }
 
     fn parse_if(&mut self) -> Result<Expr, ParseError> {
-        if self.current_token == Token::If {
+        self.advance();
+        let condition = Box::new(self.parse_expr()?);
+        let then_branch = Box::new(self.parse_block()?);
+        let else_branch = if self.current_token == Token::Else {
             self.advance();
-            let condition = Box::new(self.parse_expr()?);
-            let then_branch = Box::new(self.parse_block()?);
-            let else_branch = if self.current_token == Token::Else {
-                self.advance();
-                Some(Box::new(self.parse_block()?))
-            } else {
-                None
-            };
-            Ok(Expr::If { condition, then_branch, else_branch })
+            Some(Box::new(self.parse_block()?))
         } else {
-            self.parse_assignment()
-        }
+            None
+        };
+        Ok(Expr::If { condition, then_branch, else_branch })
     }
 
-    fn parse_assignment(&mut self) -> Result<Expr, ParseError> {
-        match &self.current_token {
-            Token::Int(i) => {}
-            Token::Uint(i) => {}
-            Token::Float(f) => {}
-            _ => {}
-        }
-        if let Token::Identifier(name) = &self.current_token {
-            let name = name.clone();
-            self.advance();
-            if self.current_token == Token::Operator(Operator::Eq) {
+    fn parse_assignment(&mut self, is_shared: bool) -> Result<Expr, ParseError> {
+        println!("hitc");
+        let name = match self.current_token {
+            Token::Identifier(ref name) => {
+                let name = name.clone();
                 self.advance();
-                let expr = Box::new(self.parse_expr()?);
-                //Ok(Expr::Assignment { name, expr })
-            } else {
+                name
             }
-            println!("hit21");
-                Err(ParseError::UnexpectedToken(self.current_token.clone()))
+
+            _=> {
+                return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+            }
+        };
+        if is_shared {
+            Ok(Expr::SharedAssignment { name })
         } else {
-            self.parse_binary_op()
+            Ok(Expr::Assignment { name })
         }
     }
 
@@ -356,9 +487,9 @@ impl<'a> Parser<'a> {
 
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         match &self.current_token {
-            Token::None => {
+            Token::TNone => {
                 self.advance();
-                Ok(Expr::None)
+                Ok(Expr::Type(Type::None))
             }
             Token::Bool(b) => {
                 let b = *b;
@@ -388,10 +519,9 @@ impl<'a> Parser<'a> {
             Token::String(s) => {
                 let s = s.clone();
                 self.advance();
-                Ok(Expr::String(s))
+                Ok(Expr::String(s.into()))
             }
-            Token::Identifier(name) => {
-                let name = name.clone();
+            Token::Identifier(_) => {
                 self.advance();
                 if self.current_token == Token::LeftParen {
                     self.advance();
@@ -409,13 +539,13 @@ impl<'a> Parser<'a> {
                 Err(ParseError::UnexpectedToken(self.current_token.clone()))
                 } else {
                     //Ok(Expr::Identifier(name))
-            println!("hit23");
-                Err(ParseError::UnexpectedToken(self.current_token.clone()))
+                    println!("hit23");
+                    Err(ParseError::UnexpectedToken(self.current_token.clone()))
                 }
             }
             Token::LeftBrace => self.parse_block(),
             _ => {
-            println!("hit24");
+                println!("hit24");
                 Err(ParseError::UnexpectedToken(self.current_token.clone()))}
             ,
         }

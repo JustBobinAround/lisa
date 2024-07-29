@@ -1,34 +1,39 @@
+use std::sync::Arc;
+
 use crate::type_def::Type;
 
 use super::lexer::Operator;
 use super::lexer::Token;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
+    DoNothing,
     Type(Type),
-    None,
     Bool(bool),
     Int(i64),
     Uint(u64),
     Char(char),
     Float(f64),
-    String(String),
-    Identifier(String),
+    String(Arc<String>),
+    Array(Vec<Expr>),
+    Identifier(Arc<String>),
     BinaryOp {
         left: Box<Expr>,
-        op: Operator,
+        op: Arc<Operator>,
         right: Box<Expr>,
     },
     UnaryOp {
-        op: Operator,
+        op: Arc<Operator>,
         expr: Box<Expr>,
     },
     FunctionCall {
-        name: String,
-        args: Vec<Expr>,
+        name: Arc<String>,
+        arg: Box<Expr>,
+    },
+    SharedAssignment {
+        name: Arc<String>,
     },
     Assignment {
-        name: String,
-        expr: Box<Expr>,
+        name: Arc<String>,
     },
     If {
         condition: Box<Expr>,
@@ -36,8 +41,8 @@ pub enum Expr {
         else_branch: Option<Box<Expr>>,
     },
     Function {
-        param_type: Type,
-        return_type: Type,
+        param_sig: u64,
+        return_sig: u64,
         block: Box<Expr>,
     },
     Block(Vec<Expr>),

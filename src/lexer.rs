@@ -4,16 +4,12 @@ use crate::type_def::Type;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
+    AssignOp(Box<Operator>),
     Sub,
-    SubAssign,
     Add,
-    AddAssign,
     Mul,
-    MulAssign,
     Div,
-    DivAssign,
     Mod,
-    ModAssign,
     Not,
     Eq,
     Neq,
@@ -36,17 +32,16 @@ pub enum Token {
     TChar,
     TFloat,
     TString,
-    None,
     Bool(bool),
     Int(i64),
     Uint(u64),
     Char(char),
     Float(f64),
-    String(String),
+    String(Arc<String>),
     Identifier(Arc<String>),
     If,
     Else,
-    Operator(Operator),
+    Operator(Arc<Operator>),
     Arrow,
     Comma,
     Period,
@@ -102,18 +97,18 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::GtEq);
+                        return Token::Operator(Operator::GtEq.into());
                     } else {
-                        return Token::Operator(Operator::Gt);
+                        return Token::Operator(Operator::Gt.into());
                     }
                 },
                 '<' => {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::LtEq);
+                        return Token::Operator(Operator::LtEq.into());
                     } else {
-                        return Token::Operator(Operator::Lt);
+                        return Token::Operator(Operator::Lt.into());
                     }
                 },
                 '(' => return self.consume(Token::LeftParen),
@@ -132,14 +127,14 @@ impl<'a> Lexer<'a> {
                         self.advance();
                         return Token::Arrow;
                     } else {
-                        return self.consume(Token::Operator(Operator::Sub));
+                        return self.consume(Token::Operator(Operator::Sub.into()).into());
                     }
                 }
                 '@' => {
                     self.advance();
                     return Token::Param;
                 }
-                '$' => {
+                '#' => {
                     self.advance();
                     return Token::Macro;
                 }
@@ -147,9 +142,9 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::AddAssign);
+                        return Token::Operator(Operator::AssignOp(Box::new(Operator::Add)).into());
                     } else {
-                        return Token::Operator(Operator::Add);
+                        return Token::Operator(Operator::Add.into());
                     }
                 }
                 '~' => {
@@ -165,67 +160,67 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::MulAssign);
+                        return Token::Operator(Operator::AssignOp(Operator::Mul.into()).into());
                     } else {
-                        return Token::Operator(Operator::Mul);
+                        return Token::Operator(Operator::Mul.into());
                     }
                 }
                 '/' => {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::DivAssign);
+                        return Token::Operator(Operator::AssignOp(Operator::Div.into()).into());
                     } else {
-                        return Token::Operator(Operator::Div);
+                        return Token::Operator(Operator::Div.into());
                     }
                 }
                 '%' => {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::ModAssign);
+                        return Token::Operator(Operator::AssignOp(Operator::Mod.into()).into());
                     } else {
-                        return Token::Operator(Operator::Mod);
+                        return Token::Operator(Operator::Mod.into());
                     }
                 }
                 '!' => {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::Neq);
+                        return Token::Operator(Operator::Neq.into());
                     } else {
-                        return Token::Operator(Operator::Not);
+                        return Token::Operator(Operator::Not.into());
                     }
                 }
                 '=' => {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='='){
                         self.advance();
-                        return Token::Operator(Operator::Eq);
+                        return Token::Operator(Operator::Eq.into());
                     } else {
                         return Token::Invalid('=');
                     }
                 }
                 '^' => {
                     self.advance();
-                    return Token::Operator(Operator::BitXor);
+                    return Token::Operator(Operator::BitXor.into());
                 }
                 '&' => {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='&'){
                         self.advance();
-                        return Token::Operator(Operator::And);
+                        return Token::Operator(Operator::And.into());
                     } else {
-                        return Token::Operator(Operator::BitAnd);
+                        return Token::Operator(Operator::BitAnd.into());
                     }
                 }
                 '|' => {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='|'){
                         self.advance();
-                        return Token::Operator(Operator::Or);
+                        return Token::Operator(Operator::Or.into());
                     } else {
-                        return Token::Operator(Operator::BitOr);
+                        return Token::Operator(Operator::BitOr.into());
                     }
                 }
                 '0'..='9' => return self.number(),
@@ -302,7 +297,7 @@ impl<'a> Lexer<'a> {
         while let Some(c) = self.current_char {
             if c == '"' {
                 self.advance();
-                return Token::String(string);
+                return Token::String(string.into());
             } else {
                 string.push(c);
                 self.advance();
@@ -333,7 +328,6 @@ impl<'a> Lexer<'a> {
             "else" => Token::Else,
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
-            "None" => Token::None,
             _ => Token::Identifier(Arc::new(ident)),
         }
     }
