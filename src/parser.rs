@@ -51,20 +51,31 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> Result<Expr, ParseError> {
-        self.parse_main()
+        self.parse_block(true)
     }
 
-    pub fn parse_main(&mut self) -> Result<Expr, ParseError> {
+    pub fn parse_block(&mut self, is_main: bool) -> Result<Expr, ParseError> {
+        if !is_main {
+            self.expect(Token::LeftBracket)?;
+        }
         let mut exprs = Vec::new();
-        while self.current_token != Token::EOF {
-            println!("a");
-            let expr = self.parse_expr()?;
+        while self.current_token != Token::EOF && self.current_token!= Token::RightBracket {
+            println!("expra");
             println!(">>>>>>>{:?}", self.current_token);
+            let expr = self.parse_expr()?;
+            println!(">>>>>>>{:?}", expr);
             match self.current_token {
-                Token::Semicolon => {
+                Token::Period => {
                     self.advance();
-                    exprs.push(expr);
-;               }
+                    let expr = self.parse_fn_call(expr)?;
+                    println!("hit post func call");
+                    exprs.push(expr); 
+                }
+                Token::Semicolon => {
+                    println!("semi::");
+                    self.advance();
+                    exprs.push(expr); 
+                }
                 Token::Operator(ref op) => {
                     let bop = op.clone();
                     self.advance();
@@ -82,23 +93,21 @@ impl<'a> Parser<'a> {
                     }
                 }
                 _ => {
+                    exprs.push(expr)
                 }
             }
         }
+        if !is_main {
+            self.expect(Token::RightBracket)?;
+        } else {
+            self.expect(Token::EOF)?;
+        }
         Ok(Expr::Block(exprs))
     }
 
-    fn parse_block(&mut self) -> Result<Expr, ParseError> {
-        let mut exprs = Vec::new();
-        self.expect(Token::LeftBracket)?;
-        while self.current_token != Token::RightBracket && self.current_token != Token::EOF {
-            exprs.push(self.parse_expr()?);
-        }
-        self.expect(Token::RightBracket)?;
-        Ok(Expr::Block(exprs))
-    }
 
     fn parse_expr(&mut self) -> Result<Expr, ParseError> {
+        println!("hitexpr: {:?}", self.current_token);
         match self.current_token {
             Token::TNone => {
                 self.advance();
@@ -186,12 +195,8 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            Token::Period => {
-                self.advance();
-                self.parse_fn_call()
-            }
             _ => {
-            println!("hit19");
+                println!("hit19");
                 Err(ParseError::UnexpectedToken(self.current_token.clone()))
             }
         }
@@ -199,7 +204,8 @@ impl<'a> Parser<'a> {
     fn parse_mut_assign(&mut self)  -> Result<Expr, ParseError> {
         unimplemented!("don't know how I should do this yet");
     }
-    fn parse_fn_call(&mut self) -> Result<Expr, ParseError> {
+
+    fn parse_fn_call(&mut self, prior_expr: Expr) -> Result<Expr, ParseError> {
         match self.current_token {
             Token::Identifier(ref name) => {
                 let b = name.clone();
@@ -207,16 +213,28 @@ impl<'a> Parser<'a> {
                 self.expect(Token::LeftParen)?;
                 println!("hita");
                 let expr = if &*b=="as" {
-                    self.parse_assignment(false)?
+                    self.parse_assignment(false, prior_expr)?
                 }else if &*b=="as_shared" {
-                    self.parse_assignment(true)?
+                    self.parse_assignment(true, prior_expr)?
+                }else if &*b=="eval" {
+                    let expr = self.parse_expr()?;
+                    Expr::EvalCall { prior_expr: prior_expr.into(), arg: Box::new(expr) }
                 } else {
                     let expr = self.parse_expr()?;
-                    Expr::FunctionCall{name: b, arg: Box::new(expr)}
+                    Expr::FunctionCall{prior_expr: prior_expr.into(), name: b, arg: Box::new(expr)}
                 };
                 println!("hitb");
                 self.expect(Token::RightParen)?;
-                Ok(expr)
+                if self.current_token == Token::Period {
+                    self.advance();
+                    self.parse_fn_call(expr)
+                } else if self.current_token == Token::Semicolon {
+                    println!("hit semi in fn call");
+                    self.advance();
+                    Ok(expr)
+                } else {
+                    Err(ParseError::UnexpectedToken(self.current_token.clone()))
+                }
             }
             _ => {
                 Err(ParseError::UnexpectedToken(self.current_token.clone()))
@@ -258,7 +276,7 @@ impl<'a> Parser<'a> {
                 return_type.get_sig()
             }
         };
-        let block = self.parse_block()?;
+        let block = self.parse_block(false)?;
         match self.current_token {
             Token::Semicolon => {
                 Ok(Expr::Function { param_sig, return_sig, block: Box::new(block) })
@@ -426,17 +444,17 @@ impl<'a> Parser<'a> {
     fn parse_if(&mut self) -> Result<Expr, ParseError> {
         self.advance();
         let condition = Box::new(self.parse_expr()?);
-        let then_branch = Box::new(self.parse_block()?);
+        let then_branch = Box::new(self.parse_block(false)?);
         let else_branch = if self.current_token == Token::Else {
             self.advance();
-            Some(Box::new(self.parse_block()?))
+            Some(Box::new(self.parse_block(false)?))
         } else {
             None
         };
         Ok(Expr::If { condition, then_branch, else_branch })
     }
 
-    fn parse_assignment(&mut self, is_shared: bool) -> Result<Expr, ParseError> {
+    fn parse_assignment(&mut self, is_shared: bool, prior_expr: Expr) -> Result<Expr, ParseError> {
         println!("hitc");
         let name = match self.current_token {
             Token::Identifier(ref name) => {
@@ -450,9 +468,9 @@ impl<'a> Parser<'a> {
             }
         };
         if is_shared {
-            Ok(Expr::SharedAssignment { name })
+            Ok(Expr::SharedAssignment { prior_expr: prior_expr.into(), name })
         } else {
-            Ok(Expr::Assignment { name })
+            Ok(Expr::Assignment { prior_expr: prior_expr.into(), name })
         }
     }
 
@@ -543,7 +561,7 @@ impl<'a> Parser<'a> {
                     Err(ParseError::UnexpectedToken(self.current_token.clone()))
                 }
             }
-            Token::LeftBrace => self.parse_block(),
+            Token::LeftBrace => self.parse_block(false),
             _ => {
                 println!("hit24");
                 Err(ParseError::UnexpectedToken(self.current_token.clone()))}

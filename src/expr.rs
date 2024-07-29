@@ -6,7 +6,6 @@ use super::lexer::Operator;
 use super::lexer::Token;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
-    DoNothing,
     Type(Type),
     Bool(bool),
     Int(i64),
@@ -26,13 +25,20 @@ pub enum Expr {
         expr: Box<Expr>,
     },
     FunctionCall {
+        prior_expr: Box<Expr>,
         name: Arc<String>,
         arg: Box<Expr>,
     },
+    EvalCall {
+        prior_expr: Box<Expr>,
+        arg: Box<Expr>,
+    },
     SharedAssignment {
+        prior_expr: Box<Expr>,
         name: Arc<String>,
     },
     Assignment {
+        prior_expr: Box<Expr>,
         name: Arc<String>,
     },
     If {
