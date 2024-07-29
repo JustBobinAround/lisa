@@ -59,43 +59,21 @@ impl<'a> Parser<'a> {
             self.expect(Token::LeftBracket)?;
         }
         let mut exprs = Vec::new();
+        let mut prior_expr = None;
         while self.current_token != Token::EOF && self.current_token!= Token::RightBracket {
             println!("expra");
             println!(">>>>>>>{:?}", self.current_token);
-            let expr = self.parse_expr()?;
+            let expr = self.parse_expr(prior_expr)?;
+            exprs.push(expr.clone());
+            prior_expr = Some(expr);
+            /*
             println!(">>>>>>>{:?}", expr);
             match self.current_token {
-                Token::Period => {
-                    self.advance();
-                    let expr = self.parse_fn_call(expr)?;
-                    println!("hit post func call");
-                    exprs.push(expr); 
-                }
-                Token::Semicolon => {
-                    println!("semi::");
-                    self.advance();
-                    exprs.push(expr); 
-                }
-                Token::Operator(ref op) => {
-                    let bop = op.clone();
-                    self.advance();
-                    match bop.as_ref() {
-                        Operator::Not => {
-                            let expr = self.parse_expr()?;
-                            exprs.push(Expr::UnaryOp { op: bop, expr: expr.into()})
-                        }
-                        //maybe mut should be uniary op?
-                        //
-                        _ => {
-                            let right = self.parse_expr()?;
-                            exprs.push(Expr::BinaryOp { left: expr.into(), op: bop, right: right.into() })
-                        }
-                    }
-                }
                 _ => {
                     exprs.push(expr)
                 }
             }
+            */
         }
         if !is_main {
             self.expect(Token::RightBracket)?;
@@ -105,10 +83,45 @@ impl<'a> Parser<'a> {
         Ok(Expr::Block(exprs))
     }
 
-
-    fn parse_expr(&mut self) -> Result<Expr, ParseError> {
+    fn parse_expr(&mut self, prior_expr: Option<Expr>) -> Result<Expr, ParseError> {
         println!("hitexpr: {:?}", self.current_token);
         match self.current_token {
+            Token::Period => {
+                self.advance();
+                if let Some(prior_expr) = prior_expr {
+                    self.parse_fn_call(prior_expr)
+                } else {
+                    return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+                }
+            }
+            Token::Semicolon => {
+                self.advance();
+                if let Some(prior_expr) = prior_expr {
+                    Ok(prior_expr)
+                } else {
+                    return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+                }
+            }
+            Token::Operator(ref op) => {
+                let bop = op.clone();
+                self.advance();
+                match bop.as_ref() {
+                    Operator::Not => {
+                        let expr = self.parse_expr(None)?;
+                        Ok(Expr::UnaryOp { op: bop, expr: expr.into()})
+                    }
+                    //maybe mut should be uniary casting op?
+                    //
+                    _ => {
+                        let right = self.parse_expr(prior_expr.clone())?;
+                        if let Some(prior_expr) = prior_expr {
+                            Ok(Expr::BinaryOp { left: prior_expr.into(), op: bop, right: right.into() })
+                        } else {
+                            return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+                        }
+                    }
+                }
+            }
             Token::TNone => {
                 self.advance();
                 Ok(Expr::Type(Type::None))
@@ -137,7 +150,7 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(Expr::Type(Type::String))
             },
-            Token::LeftParen => {
+            Token::FnTypes=> {
                 self.parse_fn()
             },
             Token::Bool(b) => {
@@ -216,11 +229,8 @@ impl<'a> Parser<'a> {
                     self.parse_assignment(false, prior_expr)?
                 }else if &*b=="as_shared" {
                     self.parse_assignment(true, prior_expr)?
-                }else if &*b=="eval" {
-                    let expr = self.parse_expr()?;
-                    Expr::EvalCall { prior_expr: prior_expr.into(), arg: Box::new(expr) }
                 } else {
-                    let expr = self.parse_expr()?;
+                    let expr = self.parse_expr(Some(prior_expr.clone()))?;
                     Expr::FunctionCall{prior_expr: prior_expr.into(), name: b, arg: Box::new(expr)}
                 };
                 println!("hitb");
@@ -261,7 +271,6 @@ impl<'a> Parser<'a> {
             }
         };
         println!("{:?}", self.current_token);
-        self.expect(Token::RightParen)?;
         self.expect(Token::Arrow)?;
         let return_sig = match &self.current_token {
             Token::Identifier(name) => {
@@ -276,6 +285,8 @@ impl<'a> Parser<'a> {
                 return_type.get_sig()
             }
         };
+        self.expect(Token::FnTypes)?;
+
         let block = self.parse_block(false)?;
         match self.current_token {
             Token::Semicolon => {
@@ -443,7 +454,7 @@ impl<'a> Parser<'a> {
 
     fn parse_if(&mut self) -> Result<Expr, ParseError> {
         self.advance();
-        let condition = Box::new(self.parse_expr()?);
+        let condition = Box::new(self.parse_expr(None)?);
         let then_branch = Box::new(self.parse_block(false)?);
         let else_branch = if self.current_token == Token::Else {
             self.advance();
@@ -545,7 +556,7 @@ impl<'a> Parser<'a> {
                     self.advance();
                     let mut args = Vec::new();
                     while self.current_token != Token::RightParen {
-                        args.push(self.parse_expr()?);
+                        args.push(self.parse_expr(None)?);
                         if self.current_token == Token::Comma {
                             self.advance();
                         }

@@ -40,8 +40,10 @@ fn main() {
         TypeC: TypeB;
         TypeD: TypeA;
         TypeE: TypeD;
-        (TypeE) -> uint {
+        |TypeE -> uint| {
             0.as(test);
+            '1'.as(var_b);
+            test + var_b
         }.test(None)
          .as(test)
          .as_shared(asdf);

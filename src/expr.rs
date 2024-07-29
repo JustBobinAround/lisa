@@ -29,10 +29,6 @@ pub enum Expr {
         name: Arc<String>,
         arg: Box<Expr>,
     },
-    EvalCall {
-        prior_expr: Box<Expr>,
-        arg: Box<Expr>,
-    },
     SharedAssignment {
         prior_expr: Box<Expr>,
         name: Arc<String>,

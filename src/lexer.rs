@@ -32,6 +32,7 @@ pub enum Token {
     TChar,
     TFloat,
     TString,
+    FnTypes,
     Bool(bool),
     Int(i64),
     Uint(u64),
@@ -218,9 +219,14 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     if self.current_char.is_some_and(|c|c=='|'){
                         self.advance();
-                        return Token::Operator(Operator::Or.into());
+                        if self.current_char.is_some_and(|c|c=='|'){
+                            self.advance();
+                            return Token::Operator(Operator::BitOr.into());
+                        } else {
+                            return Token::Operator(Operator::Or.into());
+                        }
                     } else {
-                        return Token::Operator(Operator::BitOr.into());
+                        return Token::FnTypes;
                     }
                 }
                 '0'..='9' => return self.number(),
