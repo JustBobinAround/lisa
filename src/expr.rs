@@ -1,7 +1,10 @@
+use crate::type_def::Type;
+
 use super::lexer::Operator;
 use super::lexer::Token;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
+    Type(Type),
     None,
     Bool(bool),
     Int(i64),
@@ -31,6 +34,11 @@ pub enum Expr {
         condition: Box<Expr>,
         then_branch: Box<Expr>,
         else_branch: Option<Box<Expr>>,
+    },
+    Function {
+        param_type: Type,
+        return_type: Type,
+        block: Box<Expr>,
     },
     Block(Vec<Expr>),
 }

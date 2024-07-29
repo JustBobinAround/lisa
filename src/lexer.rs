@@ -1,4 +1,6 @@
-use std::str::Chars;
+use std::{str::Chars, sync::Arc};
+
+use crate::type_def::Type;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
@@ -27,6 +29,13 @@ pub enum Operator {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    TNone,
+    TBool,
+    TInt,
+    TUint,
+    TChar,
+    TFloat,
+    TString,
     None,
     Bool(bool),
     Int(i64),
@@ -34,7 +43,7 @@ pub enum Token {
     Char(char),
     Float(f64),
     String(String),
-    Identifier(String),
+    Identifier(Arc<String>),
     If,
     Else,
     Operator(Operator),
@@ -109,10 +118,10 @@ impl<'a> Lexer<'a> {
                 },
                 '(' => return self.consume(Token::LeftParen),
                 ')' => return self.consume(Token::RightParen),
-                '{' => return self.consume(Token::LeftBrace),
-                '}' => return self.consume(Token::RightBrace),
-                '[' => return self.consume(Token::LeftBracket),
-                ']' => return self.consume(Token::RightBracket),
+                '{' => return self.consume(Token::LeftBracket),
+                '}' => return self.consume(Token::RightBracket),
+                '[' => return self.consume(Token::LeftBrace),
+                ']' => return self.consume(Token::RightBrace),
                 ',' => return self.consume(Token::Comma),
                 '.' => return self.consume(Token::Period),
                 ':' => return self.consume(Token::Colon),
@@ -313,12 +322,19 @@ impl<'a> Lexer<'a> {
             }
         }
         match ident.as_str() {
+            "None"   => Token::TNone,
+            "bool"   => Token::TBool,
+            "int"    => Token::TInt,
+            "uint"   => Token::TUint,
+            "char"   => Token::TChar,
+            "float"  => Token::TFloat,
+            "String" => Token::TString,
             "if" => Token::If,
             "else" => Token::Else,
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
             "None" => Token::None,
-            _ => Token::Identifier(ident),
+            _ => Token::Identifier(Arc::new(ident)),
         }
     }
 }
