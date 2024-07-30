@@ -3,11 +3,28 @@
 This language is going to be used as a tool to explore static type analysis and
 code synthesis techniques along with the possible incorporation of AI.
 
+### Todo
+- [x] Implement initial Lexer
+- [x] Implement initial Parser
+- [x] Implement initial Interpreter
+- [ ] Refactor Lexer
+- [ ] Finish implementing Parser
+- [ ] Refactor Parser
+- [ ] Finish implementing Interpreter
+- [ ] Refactor Interpreter
+- [ ] Refine and finish initial spec
+- [ ] General Refactor
+- [ ] Performance Analysis
+- [ ] Implement intermediate pre-processor 
+- [ ] Implement standard library and external lib binding aids
+- [ ] Bootstrap glibc if possible
+
+
 ### Change Log
 
-- **2024-07-29 17:39:00**: Implemented most of parser. Ran into issue with after
+- **2024-07-29 17:39**: Implemented most of parser. Ran into issue with after
 attempting to add operators to expression parsing.
-- **2024-07-29 19:21:00**: Updated Assignment expressions:
+- **2024-07-29 19:21**: Updated Assignment expressions:
 Assignment methods now have access to the prior express within their internal
 data structure.
 **CODE**
@@ -35,4 +52,5 @@ Assignment {
     name: "test",
 },
 ```
-- **2024-07-29 20:18:00**: Finished Most of Expression AST part
+- **2024-07-29 20:18**: Finished Most of Expression AST part
+- **2024-07-29 20:38**: Added initial engine boilerplate
