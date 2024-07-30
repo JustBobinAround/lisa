@@ -35,3 +35,4 @@ Assignment {
     name: "test",
 },
 ```
+- **2024-07-29 20:18:00**: Finished Most of Expression AST part

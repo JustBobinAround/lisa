@@ -43,7 +43,11 @@ fn main() {
         |TypeE -> uint| {
             0.as(test);
             '1'.as(var_b);
-            test + var_b
+
+
+            a + b + c;
+            a + (b + c);
+            !a + !(b + c);
         }.test(None)
          .as(test)
          .as_shared(asdf);

@@ -122,6 +122,20 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
+            Token::LeftParen => {
+                self.advance();
+                let mut prior_expr = None;
+                while self.current_token!=Token::RightParen && self.current_token!= Token::EOF {
+                    prior_expr = Some(self.parse_expr(prior_expr)?);
+                }
+                self.expect(Token::RightParen)?;
+
+                if let Some(prior_expr) = prior_expr {
+                    Ok(prior_expr)
+                } else {
+                    return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+                }
+            }
             Token::TNone => {
                 self.advance();
                 Ok(Expr::Type(Type::None))
