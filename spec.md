@@ -14,7 +14,7 @@
 - **array**: `[T]`
 - **struct**: `{ K1: T1, K2:T2 }`
 - **tupple**: Extends struct; Key names are implied as numbers
-- **functions**: `(T1) -> T2 { expr }`
+- **functions**: `|T1 -> T2| { expr }`
 
 # Important Feature Ideas Up Front
 This is still an early project and is subject to heavy change...
@@ -36,7 +36,7 @@ With functionality like this, I'm wondering if it would be possible to split
 work into threads until a variable is needed. Basically this would allow for
 automatic async scheduling. For instance:
 ```
-([int]) -> int {
+|[int] -> int| {
     //doing a lot of stuff in here
 }(a_big_array).as(temp_variable);
 
@@ -134,17 +134,17 @@ PointList: [Point];
 ### Type parameters for functions must be a singleton (kind-of)
 ```
 // this is not allowed:
-(int,int) -> int {
+|(int,int) -> int| {
 }.as("add");
 
 // this is allowed:
 
-([int]) -> int {
+|[int] -> int| {
     *0.as("sum");
     // strap(VAR) allows for out of closure mutation by creating a shared reference
     // within the closure provided in a map or iterator function
     @.strap(sum)
-     .map((int) -> int {
+     .map(|int -> int| {
         *sum += @;
         @
     });
@@ -155,7 +155,7 @@ PointList: [Point];
 array_sum([1,2,3]); // returns 6
 
 // this is also allowed:
-({a: int, b: int}) -> int {
+|{a: int, b: int} -> int| {
     @.a + @.b
 }.as("add");
 
@@ -170,10 +170,10 @@ iterator functions are only usable when not run as `*` type. Once `*` is
 called, the iterator functions lose parallelized capabilities.  
 ```
 // this will run in parallel
-([int]) -> int {
+|[int] -> int| {
     *0.as("sum");
     @.strap(sum)
-     .map((int) -> int {
+     .map(|int -> int| {
         *sum += @;
         @
      });
@@ -183,10 +183,10 @@ called, the iterator functions lose parallelized capabilities.
 
 
 // this will NOT run in parallel
-([int]) -> int {
+|[int] -> int| {
     *0.as("sum");
     *@.strap(sum)   // <-- possible mutation could occur...
-      .map((int) -> int {
+      .map(|int -> int| {
         *sum += @;
         @
       });
@@ -196,7 +196,7 @@ called, the iterator functions lose parallelized capabilities.
 
 ([int]) -> [int] {
     // sort_by is only accessible via *
-    *@.sort_by(({a: int, b: int}) -> () {
+    *@.sort_by(|{a: int, b: int} -> ()| {
         if a > b {
             a
         } else {
@@ -216,7 +216,7 @@ called, the iterator functions lose parallelized capabilities.
 type.
 
 ```
-*Point::(Point) -> Point {
+*Point::|Point -> Point| {
     // can mutate self only when pointing * and fn is declared with &
     *self.x += @.x;
     *self.y += @.y;
@@ -225,7 +225,7 @@ type.
     self.clone()
 }.as("add_point_to_self"); // function is immutable, self is not
 
-Point::(Point) -> Point {
+Point::|Point -> Point| {
     // may only reference variables
     {
         x: self.x + @.x,
@@ -260,7 +260,7 @@ point_a
 The final return can not be implicitly denoted with the `return` keyword. I think
 it looks nicer; get over it. Early implicit returns are allowed though:
 ```
-({a: int, b: int}) -> <int, ()> {
+|{a: int, b: int} -> <int, ()>| {
     // if and b are equal, return none without running next statements
     if a==b {
         return <()>;
