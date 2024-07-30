@@ -198,22 +198,15 @@ impl<'a> Parser<'a> {
                 match self.current_token {
                     Token::Colon => {
                         self.advance();
+                        let t = self.parse_type_def(b)?;
                         match self.current_token {
-                            Token::Colon => {
-                                unimplemented!("This is for type extention");
+                            Token::Semicolon => {
+                                self.advance();
+                                Ok(t)
                             }
                             _ => {
-                                let t = self.parse_type_def(b)?;
-                                match self.current_token {
-                                    Token::Semicolon => {
-                                        self.advance();
-                                        Ok(t)
-                                    }
-                                    _ => {
-                                        println!("hit17");
-                                        Err(ParseError::UnexpectedToken(self.current_token.clone()))
-                                    }
-                                }
+                                println!("hit17");
+                                Err(ParseError::UnexpectedToken(self.current_token.clone()))
                             }
                         }
                     }
@@ -479,24 +472,80 @@ impl<'a> Parser<'a> {
         Ok(Expr::If { condition, then_branch, else_branch })
     }
 
-    fn parse_assignment(&mut self, is_shared: bool, prior_expr: Expr) -> Result<Expr, ParseError> {
-        println!("hitc");
-        let name = match self.current_token {
+    fn parse_extention(&mut self, prior_expr: Expr, sig: Option<u64>) -> Result<Expr, ParseError> {
+        let t = if let Some(sig) = sig {
+            sig
+        } else {
+            self.parse_type(false)?.get_sig()
+        };
+        self.expect(Token::Colon)?;
+        self.expect(Token::Colon)?;
+        match self.current_token {
             Token::Identifier(ref name) => {
                 let name = name.clone();
                 self.advance();
-                name
+                Ok(Expr::TypeExtend { type_sig: t, name: name.clone(), expr: prior_expr.into() })
+            }
+            _=> {
+                Err(ParseError::UnexpectedToken(self.current_token.clone()))
+            }
+        }
+
+    }
+
+    fn parse_assignment(&mut self, is_shared: bool, prior_expr: Expr) -> Result<Expr, ParseError> {
+        println!("hitc");
+        match self.current_token {
+            Token::Identifier(ref name) => {
+                let name = name.clone();
+                self.advance();
+                if let Some(t) = self.type_name_map.get(&*name) {
+                    println!("hit type match");
+                    self.parse_extention(prior_expr, Some(*t))
+                } else {
+                    if is_shared {
+                        Ok(Expr::SharedAssignment { prior_expr: prior_expr.into(), name })
+                    } else {
+                        Ok(Expr::Assignment { prior_expr: prior_expr.into(), name })
+                    }
+                }
             }
 
             _=> {
+                println!("hit default type match");
+                self.parse_extention(prior_expr, None)
+            }
+        }
+        /*
+        if let Some(t) = self.type_name_map.get(&*name) {
+            if let Some(t) = self.type_sig_map.get(&*t) {
+                let t = t.clone()
+                    .deref()
+                    .clone();
+                self.expect(Token::Colon)?;
+                self.expect(Token::Colon)?;
+                let name = match self.current_token {
+                    Token::Identifier(ref name) => {
+                        let name = name.clone();
+                        self.advance();
+                        name
+                    }
+
+                    _=> {
+                        return Err(ParseError::UnexpectedToken(self.current_token.clone()));
+                    }
+                };
+                Ok(Expr::TypeExtend {
+                    type_def: t,
+                    name,
+                    expr: prior_expr.into()
+                })
+            } else {
                 return Err(ParseError::UnexpectedToken(self.current_token.clone()));
             }
-        };
-        if is_shared {
-            Ok(Expr::SharedAssignment { prior_expr: prior_expr.into(), name })
         } else {
-            Ok(Expr::Assignment { prior_expr: prior_expr.into(), name })
-        }
+        */
+        //}
     }
 
     fn parse_binary_op(&mut self) -> Result<Expr, ParseError> {

@@ -29,11 +29,20 @@ fn main() {
          .as_shared(asdf);
     "#;
     let input = r#"
-        (1+1).as(test);
+        TypeTest: int;
+        |{a: int, b: int} -> int| {
+
+        }.as(TypeTest::test);
+        |TypeTest -> int| {
+
+        }.as(int::test);
     "#;
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
-    let mut interpreter = Interpreter::new();
-    interpreter.interpret(&mut parser).expect("Interpretation failed");
-    println!("{:?}",interpreter);
+    //let mut interpreter = Interpreter::new();
+    //interpreter.interpret(&mut parser).expect("Interpretation failed");
+    match parser.parse() {
+        Ok(ast) => println!("{:#?}", ast),
+        Err(e) => println!("Error: {:?}", e),
+    }
 }

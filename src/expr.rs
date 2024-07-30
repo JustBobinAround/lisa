@@ -47,6 +47,11 @@ pub enum Expr {
         return_sig: u64,
         block: Box<Expr>,
     },
+    TypeExtend {
+        type_sig: u64,
+        name: Arc<String>,
+        expr: Box<Expr>        
+    },
     Block(Vec<Expr>),
 }
 
