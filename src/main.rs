@@ -29,13 +29,24 @@ fn main() {
          .as_shared(asdf);
     "#;
     let input = r#"
-        TypeTest: int;
-        |{a: int, b: int} -> int| {
+        TypeTest: {
+            a: Self,
+            b: float,
+        };
+        TypeB: {
+            a: int,
+            b: float,
+        };
 
-        }.as(TypeTest::test);
-        |TypeTest -> int| {
 
-        }.as(int::test);
+        |Self -> Self| {
+
+        }.asdsf()
+         .test() 
+         .lkjh();
+    "#;
+    let input = r#"
+        5.as(test)+3.as(test);
     "#;
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);

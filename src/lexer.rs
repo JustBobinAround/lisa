@@ -5,14 +5,14 @@ use crate::type_def::Type;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     AssignOp(Box<Operator>),
-    Sub,
-    Add,
-    Mul,
-    Div,
-    Mod,
-    Not,
-    Eq,
-    Neq,
+    Sub, // done
+    Add, // done
+    Mul, // done
+    Div, // done
+    Mod, // done
+    Not, // done
+    Eq,  // done
+    Neq, // done
     Gt,
     Lt,
     GtEq,
@@ -25,6 +25,7 @@ pub enum Operator {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    Generic,
     TNone,
     TBool,
     TInt,
@@ -323,6 +324,7 @@ impl<'a> Lexer<'a> {
             }
         }
         match ident.as_str() {
+            "Self"      => Token::Generic,
             "None"   => Token::TNone,
             "bool"   => Token::TBool,
             "int"    => Token::TInt,

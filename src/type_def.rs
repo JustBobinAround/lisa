@@ -1,10 +1,12 @@
-use std::{collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, ops::Deref, sync::Arc};
-#[derive(Debug, PartialEq,Ord,Eq,PartialOrd, Clone)]
+use std::{sync::Arc, ops::Deref};
+
+#[derive(Debug, PartialEq, Ord, Eq, PartialOrd, Clone)]
 pub enum Type {
-    TypeDef{
+    TypeDef {
         name: Arc<String>,
-        type_def: Arc<Type>
+        type_def: Arc<Type>,
     },
+    Generic,
     None,
     Bool,
     Int,
@@ -12,82 +14,81 @@ pub enum Type {
     Char,
     Float,
     String,
-    Array{
-        array_type: Box<Type>
+    Array {
+        array_type: Box<Type>,
     },
     Struct {
-        pairs: Vec<Type>
+        pairs: Vec<Type>,
     },
     Function {
         param_type: Box<Type>,
         return_type: Box<Type>,
     },
     Optional {
-        types: Vec<Type>
-    }
+        types: Vec<Type>,
+    },
 }
 
 impl Type {
-    pub fn get_sig(&mut self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.hash_structure(&mut hasher);
-        hasher.finish()
+    pub fn get_sig(&self) -> u64 {
+        self.hash_structure(0)
     }
 
-    fn hash_structure<H: Hasher>(&mut self, state: &mut H) {
+    fn hash_structure(&self, state: u64) -> u64 {
         use Type::*;
+
+        fn combine_hash(state: u64, value: u64) -> u64 {
+            state.wrapping_mul(31).wrapping_add(value)
+        }
 
         match self {
             TypeDef { name: _, type_def } => {
-                "TypeDef".hash(state);
-                type_def.clone()
-                    .deref()
-                    .clone()
-                    .hash_structure(state);
+                type_def.deref().hash_structure(state)
+            }
+            Generic => {
+                combine_hash(state, 1000000001)
             }
             None => {
-                "None".hash(state);
+                combine_hash(state, 1000000002)
             }
             Bool => {
-                "Bool".hash(state);
+                combine_hash(state, 1000000003)
             }
             Int => {
-                "Int".hash(state);
+                combine_hash(state, 1000000004)
             }
             Uint => {
-                "Uint".hash(state);
+                combine_hash(state, 1000000005)
             }
             Char => {
-                "Char".hash(state);
+                combine_hash(state, 1000000006)
             }
             Float => {
-                "Float".hash(state);
+                combine_hash(state, 1000000007)
             }
             String => {
-                "String".hash(state);
+                combine_hash(state, 1000000008)
             }
             Array { array_type } => {
-                "Array".hash(state);
-                array_type.hash_structure(state);
+                let state = combine_hash(state, 1000000009);
+                array_type.hash_structure(state)
             }
             Struct { pairs } => {
-                "Struct".hash(state);
-                pairs.sort();
-                for pair in pairs {
-                    pair.hash_structure(state);
-                }
+                let state = combine_hash(state, 1000000010);
+                let mut sorted_pairs = pairs.clone();
+                sorted_pairs.sort();
+                sorted_pairs.into_iter().fold(state, |acc, pair| pair.hash_structure(acc))
             }
             Function { param_type, return_type } => {
-                "Function".hash(state);
-                param_type.hash_structure(state);
-                return_type.hash_structure(state);
+                let state = combine_hash(state, 1000000011);
+                let state = param_type.hash_structure(state);
+                return_type.hash_structure(state)
             }
             Optional { types } => {
-                "Optional".hash(state);
-                types.sort();
-                for ty in types {
-                    ty.hash_structure(state);
-                }
+                let state = combine_hash(state, 1000000012);
+                let mut sorted_types = types.clone();
+                sorted_types.sort();
+                sorted_types.into_iter().fold(state, |acc, ty| ty.hash_structure(acc))
             }
         }
     }

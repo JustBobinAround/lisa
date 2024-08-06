@@ -88,12 +88,12 @@ impl Interpreter {
             Expr::Char(c) => Ok(Value::Char(*c)),
             Expr::Float(f) => Ok(Value::Float(*f)),
             Expr::String(s) => Ok(Value::String(s.clone().deref().clone())),
-            Expr::Assignment { prior_expr, name } => {
+            Expr::Assignment { prior_expr,expr, name } => {
                 let value = self.evaluate(prior_expr)?;
                 self.variables.insert(name.clone().deref().clone(), value.clone());
                 Ok(value)
             }
-            Expr::SharedAssignment { prior_expr, name } => {
+            Expr::SharedAssignment { prior_expr,expr, name } => {
                 let value = self.evaluate(prior_expr)?;
                 self.variables.insert(name.clone().deref().clone(), value.clone());
                 Ok(value)

@@ -7,6 +7,9 @@ code synthesis techniques along with the possible incorporation of AI.
 - [x] Implement initial Lexer
 - [x] Implement initial Parser
 - [x] Implement initial Interpreter
+- [x] Implement initial type signatures
+- [ ] Fix type signatures
+- [ ] Implement initial semantic analyzer 
 - [ ] Refactor Lexer
 - [ ] Finish implementing Parser
 - [ ] Refactor Parser
