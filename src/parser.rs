@@ -38,14 +38,14 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> Result<Expr, ParseError> {
-        self.parse_block(true)
+        let mut variables = HashMap::new();
+        self.parse_block(true, &mut variables)
     }
 
-    pub fn parse_block(&mut self, is_main: bool) -> Result<Expr, ParseError> {
+    pub fn parse_block(&mut self, is_main: bool, mut variables: &mut HashMap<String, Arc<Expr>>) -> Result<Expr, ParseError> {
         if !is_main {
             self.expect(Token::LeftBracket, "Expected starting bracket at start of block")?;
         }
-        let mut variables = HashMap::new();
         let mut exprs = Vec::new();
         let mut prior_expr = None;
         while self.current_token != Token::EOF {
@@ -110,7 +110,11 @@ impl<'a> Parser<'a> {
             Token::Identifier(ref name) => {
                 let name = name.clone();
                 self.advance();
-                self.parse_identifer(name)?.into()
+                self.parse_identifer(name, variables)?.into()
+            }
+            Token::LeftBracket => {
+                let expr = self.parse_block(false, variables)?;
+                expr.into()
             }
             Token::LeftParen => {
                 self.advance();
@@ -122,7 +126,21 @@ impl<'a> Parser<'a> {
                 return Err(ParseError::BadToken(self.current_token.clone(), "Found wrong token while parsing expression".to_string()))
             }
         };
-        if self.current_token==Token::Period {
+        let left_expr = self.parse_method_call(variables, left_expr)?;
+        match self.current_token {
+            Token::Operator(ref op) => {
+                let op = op.clone();
+                self.advance();
+                self.parse_binary(&mut variables, op, left_expr)
+            }
+            _ => {
+                Ok(left_expr)
+            }
+        }
+    }
+
+    fn parse_method_call(&mut self, variables: &mut HashMap<String, Arc<Expr>>, left_expr: Arc<Expr>) -> Result<Arc<Expr>, ParseError> {
+        while self.current_token==Token::Period {
             self.advance();
             match self.current_token {
                 Token::Identifier(ref name) => {
@@ -150,41 +168,32 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        match self.current_token {
-            Token::Operator(ref op) => {
-                let op = op.clone();
-                self.advance();
-                self.parse_binary(&mut variables, op, left_expr)
-            }
-            _ => {
-                Ok(left_expr)
-            }
-        }
+        Ok(left_expr)
     }
 
     fn parse_binary(&mut self, mut variables: &mut HashMap<String, Arc<Expr>>, op: Arc<Operator>, left_expr: Arc<Expr>) -> Result<Arc<Expr>, ParseError> {
         let right_expr: Arc<Expr> = self.parse_expr(&mut variables, Some(left_expr.clone()))?;
         match *op {
             Operator::Add => {
-                Ok(Expr::add(left_expr, right_expr).into())
+                Ok(Expr::add(left_expr, right_expr)?.into())
             }
             Operator::Sub=> {
-                Ok(Expr::sub(left_expr, right_expr).into())
+                Ok(Expr::sub(left_expr, right_expr)?.into())
             }
             Operator::Mul=> {
-                Ok(Expr::mult(left_expr, right_expr).into())
+                Ok(Expr::mult(left_expr, right_expr)?.into())
             }
             Operator::Div=> {
-                Ok(Expr::div(left_expr, right_expr).into())
+                Ok(Expr::div(left_expr, right_expr)?.into())
             }
             Operator::Mod=> {
-                Ok(Expr::modd(left_expr, right_expr).into())
+                Ok(Expr::modd(left_expr, right_expr)?.into())
             }
             Operator::Eq=> {
-                Ok(Expr::eq(left_expr, right_expr).into())
+                Ok(Expr::eq(left_expr, right_expr)?.into())
             }
             Operator::Neq=> {
-                Ok(Expr::neq(left_expr, right_expr).into())
+                Ok(Expr::neq(left_expr, right_expr)?.into())
             }
             _ => {
                 Ok(Expr::BinaryOp{left: left_expr, op, right: right_expr}.into())
@@ -216,7 +225,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_identifer(&mut self, name: Arc<String>) -> Result<Expr, ParseError> {
+    fn parse_identifer(&mut self, name: Arc<String>, variables: &mut HashMap<String, Arc<Expr>>) -> Result<Arc<Expr>, ParseError> {
         match self.current_token {
             Token::Colon => {
                 unimplemented!("type declaration");
@@ -225,7 +234,14 @@ impl<'a> Parser<'a> {
                 unimplemented!("function call");
             }
             _ => {
-                Ok(Expr::Identifier(name))
+                match variables.get(&*name) {
+                    Some(expr) => {
+                        Ok(expr.clone())
+                    }
+                    None => {
+                        Ok(Expr::Identifier(name).into())
+                    }
+                }
             }
         }
     }

@@ -46,7 +46,9 @@ fn main() {
          .lkjh();
     "#;
     let input = r#"
-        5.as(test)+3.as(test);
+        'c'.as(test1)
+         .as(test2);
+        10==test1;
     "#;
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
