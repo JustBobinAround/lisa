@@ -40,15 +40,29 @@ fn main() {
 
 
         |Self -> Self| {
-
+            5
         }.asdsf()
          .test() 
          .lkjh();
     "#;
     let input = r#"
-        'c'.as(test1)
-         .as(test2);
-        10==test1;
+        test: {
+            a: int,
+            b: int,
+        };
+
+        |int->int| {
+            @
+        };
+        5.as(test1);
+        2.as(test2);
+        { a: 2, };
+
+        test2
+            .pass_to(4)
+            .as(test2);
+
+        test2==test1;
     "#;
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);

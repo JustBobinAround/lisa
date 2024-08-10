@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::Arc;
 
-use crate::expr;
+use crate::{expr, type_def};
 use crate::type_def::Type;
 
 use super::lexer::{Token, Operator};
@@ -13,10 +13,31 @@ pub struct Parser<'a> {
     pub lexer: Lexer<'a>,
     current_token: Token,
 }
-pub struct BlockState {
-    current_expr: Arc<Expr>,
-    variables: HashMap<String, Arc<Expr>>
+
+pub struct TypeMap {
+    pub name_map: HashMap<String, Arc<Type>>,
+    pub sig_map: HashMap<u64, Arc<Type>>
 }
+impl TypeMap {
+    pub fn new() -> TypeMap {
+        TypeMap { name_map: HashMap::new(), sig_map: HashMap::new() }
+    }
+
+    pub fn insert(&mut self, name: String, type_def: Arc<Type>) -> Result<(), ParseError> {
+        if self.name_map.contains_key(&name) {
+            return Err(ParseError::BadExpress("Can't overwrite existing types".to_string()))
+        } else {
+            self.name_map.insert(name, type_def.clone());
+        }
+        let sig = type_def.get_sig();
+        if !self.sig_map.contains_key(&sig) {
+            self.sig_map.insert(type_def.get_sig(), type_def);
+        }
+        Ok(())
+    }
+
+}
+
 
 impl<'a> Parser<'a> {
     pub fn new(mut lexer: Lexer<'a>) -> Self {
@@ -39,17 +60,23 @@ impl<'a> Parser<'a> {
 
     pub fn parse(&mut self) -> Result<Expr, ParseError> {
         let mut variables = HashMap::new();
-        self.parse_block(true, &mut variables)
+        let mut types = TypeMap::new();
+        self.parse_block(true, &mut variables, &mut types)
     }
 
-    pub fn parse_block(&mut self, is_main: bool, mut variables: &mut HashMap<String, Arc<Expr>>) -> Result<Expr, ParseError> {
+    pub fn parse_block(
+        &mut self, 
+        is_main: bool,
+        mut variables: &mut HashMap<String, Arc<Expr>>, 
+        mut types: &mut TypeMap
+    ) -> Result<Expr, ParseError> {
         if !is_main {
             self.expect(Token::LeftBracket, "Expected starting bracket at start of block")?;
         }
         let mut exprs = Vec::new();
         let mut prior_expr = None;
         while self.current_token != Token::EOF {
-            let expr = self.parse_expr(&mut variables, prior_expr)?;
+            let expr = self.parse_expr(&mut variables, &mut types)?;
             println!("{:?}", self.current_token);
             exprs.push(expr.clone());
             prior_expr = Some(expr);
@@ -75,12 +102,20 @@ impl<'a> Parser<'a> {
         Ok(Expr::Block(exprs))
     }
 
-    fn parse_expr(&mut self, mut variables: &mut HashMap<String, Arc<Expr>>, prior_expr: Option<Arc<Expr>>) -> Result<Arc<Expr>, ParseError> {
+    fn parse_expr(
+        &mut self, 
+        mut variables: &mut HashMap<String, Arc<Expr>>, 
+        mut types: &mut TypeMap
+    ) -> Result<Arc<Expr>, ParseError> {
         let left_expr: Arc<Expr> = match self.current_token {
+            Token::Param => {
+                self.advance();
+                Expr::Param.into()
+            }
             Token::Operator(ref op) => {
                 let op = op.clone();
                 self.advance();
-                self.parse_unary(&mut variables, op)?.into()
+                self.parse_unary(&mut variables, &mut types, op)?.into()
             }
             Token::Bool(b) => {
                 self.advance();
@@ -110,28 +145,58 @@ impl<'a> Parser<'a> {
             Token::Identifier(ref name) => {
                 let name = name.clone();
                 self.advance();
-                self.parse_identifer(name, variables)?.into()
-            }
-            Token::LeftBracket => {
-                let expr = self.parse_block(false, variables)?;
-                expr.into()
+                self.parse_identifer(name, variables, types)?.into()
             }
             Token::LeftParen => {
                 self.advance();
-                let expr = self.parse_expr(variables, prior_expr)?;
+                let expr = self.parse_expr(variables, types)?;
                 self.expect(Token::RightParen, "Expected closing paren after parsing inner expression")?;
                 expr.into()
+            }
+            Token::FnTypes => {
+                self.advance();
+                let pt = self.parse_type(types)?.get_sig();
+                self.expect(Token::Arrow, "Expected arrow function")?;
+                let rt = self.parse_type(types)?.get_sig();
+                self.expect(Token::FnTypes, "Expected func param close")?;
+                let block = self.parse_block(false, &mut HashMap::new(), types)?;
+
+                Expr::Function { param_sig: pt, return_sig: rt, block: block.into() }.into()
+            }
+            Token::LeftBracket => {
+                self.advance();
+                let mut var_defs= HashMap::new();
+                while self.current_token!=Token::EOF {
+                    match self.current_token {
+                        Token::RightBracket => {
+                            self.advance();
+                            break;
+                        }
+                        Token::Identifier(ref name) => {
+                            let name = name.clone();
+                            self.advance();
+                            self.expect(Token::Colon, "Expected type definition")?;
+                            let expr = self.parse_expr(variables, types)?;
+                            self.expect(Token::Comma, "Expected comma after type def")?;
+                            var_defs.insert(name.to_string(), expr);
+                        }
+                        _ => {
+                            return Err(ParseError::BadToken(self.current_token.clone(), "Expected expresion or unary operator".to_string()))
+                        }
+                    }
+                }
+                Expr::Struct { pairs: var_defs }.into()
             }
             _ => {
                 return Err(ParseError::BadToken(self.current_token.clone(), "Found wrong token while parsing expression".to_string()))
             }
         };
-        let left_expr = self.parse_method_call(variables, left_expr)?;
+        let left_expr = self.parse_method_call(variables,types, left_expr)?;
         match self.current_token {
             Token::Operator(ref op) => {
                 let op = op.clone();
                 self.advance();
-                self.parse_binary(&mut variables, op, left_expr)
+                self.parse_binary(&mut variables,&mut types, op, left_expr)
             }
             _ => {
                 Ok(left_expr)
@@ -139,7 +204,20 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_method_call(&mut self, variables: &mut HashMap<String, Arc<Expr>>, left_expr: Arc<Expr>) -> Result<Arc<Expr>, ParseError> {
+    fn parse_method_call(
+        &mut self, 
+        variables: &mut HashMap<String, Arc<Expr>>, 
+        types: &mut TypeMap,
+        mut left_expr: Arc<Expr>
+    ) -> Result<Arc<Expr>, ParseError> {
+        if self.current_token==Token::Period {
+            match *left_expr {
+                Expr::Type(_) => {
+                    return Err(ParseError::BadToken(self.current_token.clone(), "Can't call methods on types".to_string()))
+                }
+                _ => {}
+            }
+        }
         while self.current_token==Token::Period {
             self.advance();
             match self.current_token {
@@ -159,6 +237,26 @@ impl<'a> Parser<'a> {
                                 unimplemented!("method call");
                             }
                         }
+                    } else if *name=="pass_to" {
+                        self.expect(Token::LeftParen, "")?;
+                        let expr = self.parse_expr(variables, types)?;
+                        left_expr = match *expr {
+                            Expr::Identifier(ref name) => {
+                                let name = name.clone();
+                                match variables.get(&*name) {
+                                    Some(expr) => {
+                                        expr.clone()
+                                    }
+                                    None => {
+                                        return Err(ParseError::BadToken(self.current_token.clone(), "Unknown variable".to_string()))
+                                    }
+                                }
+                            }
+                            _ => {
+                                expr
+                            }
+                        };
+                        self.expect(Token::RightParen, "")?;
                     } else {
                         unimplemented!("method call");
                     }
@@ -171,8 +269,10 @@ impl<'a> Parser<'a> {
         Ok(left_expr)
     }
 
-    fn parse_binary(&mut self, mut variables: &mut HashMap<String, Arc<Expr>>, op: Arc<Operator>, left_expr: Arc<Expr>) -> Result<Arc<Expr>, ParseError> {
-        let right_expr: Arc<Expr> = self.parse_expr(&mut variables, Some(left_expr.clone()))?;
+    fn parse_binary(
+        &mut self, 
+        mut variables: &mut HashMap<String, Arc<Expr>>,mut types: &mut TypeMap, op: Arc<Operator>, left_expr: Arc<Expr>) -> Result<Arc<Expr>, ParseError> {
+        let right_expr: Arc<Expr> = self.parse_expr(&mut variables, &mut types)?;
         match *op {
             Operator::Add => {
                 Ok(Expr::add(left_expr, right_expr)?.into())
@@ -200,8 +300,9 @@ impl<'a> Parser<'a> {
             }
         }
     }
-    fn parse_unary(&mut self, mut variables: &mut HashMap<String, Arc<Expr>>,op: Arc<Operator>) -> Result<Expr, ParseError> {
-        let right_expr: Arc<Expr> = self.parse_expr(&mut variables, None)?;
+
+    fn parse_unary(&mut self, mut variables: &mut HashMap<String, Arc<Expr>>, mut types: &mut TypeMap, op: Arc<Operator>) -> Result<Expr, ParseError> {
+        let right_expr: Arc<Expr> = self.parse_expr(&mut variables, &mut types)?;
         match *op {
             Operator::Not => {
                 Ok(Expr::UnaryOp{op: op.clone(), expr:right_expr})
@@ -225,10 +326,89 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_identifer(&mut self, name: Arc<String>, variables: &mut HashMap<String, Arc<Expr>>) -> Result<Arc<Expr>, ParseError> {
+    fn parse_type(&mut self, types: &mut TypeMap) -> Result<Arc<Type>, ParseError> {
+        match self.current_token {
+            Token::TNone => {
+                self.advance();
+                Ok(Type::None.into())
+            }
+            Token::TBool => {
+                self.advance();
+                Ok(Type::Bool.into())
+            }
+            Token::TInt => {
+                self.advance();
+                Ok(Type::Int.into())
+            }
+            Token::TUint => {
+                self.advance();
+                Ok(Type::Uint.into())
+            }
+            Token::TChar => {
+                self.advance();
+                Ok(Type::Char.into())
+            }
+            Token::TFloat => {
+                self.advance();
+                Ok(Type::Float.into())
+            }
+            Token::TString => {
+                self.advance();
+                Ok(Type::String.into())
+            }
+            Token::LeftBracket => {
+                self.advance();
+                let mut type_defs = Vec::new();
+                while self.current_token!=Token::EOF {
+                    match self.current_token {
+                        Token::RightBracket => {
+                            self.advance();
+                            break;
+                        }
+                        Token::Identifier(ref name) => {
+                            let name = name.clone();
+                            self.advance();
+                            self.expect(Token::Colon, "Expected type definition")?;
+                            let t = self.parse_type(types)?;
+                            self.expect(Token::Comma, "Expected comma after type def")?;
+                            type_defs.push(Type::TypeDef { name, type_def: t })
+                        }
+                        _ => {
+                            return Err(ParseError::BadToken(self.current_token.clone(), "Expected expresion or unary operator".to_string()))
+                        }
+                    }
+                }
+                Ok(Type::Struct { pairs: type_defs }.into())
+            }
+            Token::Identifier(ref name) => {
+                if let Some(t) = types.name_map.get(&**name) {
+                    Ok(t.clone())
+                } else {
+                    return Err(ParseError::BadToken(self.current_token.clone(), "Expected expresion or unary operator".to_string()));
+                }
+            }
+            _ => {
+                Err(ParseError::BadToken(self.current_token.clone(), "Expected expresion or unary operator".to_string()))
+            }
+        }
+    }
+
+    fn parse_type_def(&mut self, name: Arc<String>, types: &mut TypeMap) -> Result<Expr, ParseError> {
+        let t: Arc<Type> = self.parse_type(types)?.into();
+        types.insert(name.to_string(), t.clone())?;
+        Ok(Expr::Type(Type::TypeDef { name, type_def: t}))
+    }
+
+    fn parse_identifer(
+        &mut self, 
+        name: Arc<String>, 
+        variables: &mut HashMap<String, Arc<Expr>>,
+        types: &mut TypeMap
+    ) -> Result<Arc<Expr>, ParseError> {
         match self.current_token {
             Token::Colon => {
-                unimplemented!("type declaration");
+                self.advance();
+                Ok(self.parse_type_def(name, types)?.into())
             }
             Token::LeftParen => {
                 unimplemented!("function call");
