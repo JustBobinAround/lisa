@@ -25,6 +25,8 @@ code synthesis techniques along with the possible incorporation of AI.
 
 ### Change Log
 
+- **2024-08-10 23:32**: Finished most of parser. Will be starting intermediate
+analyzer tomorrow.
 - **2024-07-29 17:39**: Implemented most of parser. Ran into issue with after
 attempting to add operators to expression parsing.
 - **2024-07-29 19:21**: Updated Assignment expressions:
