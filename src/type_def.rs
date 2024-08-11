@@ -15,17 +15,17 @@ pub enum Type {
     Float,
     String,
     Array {
-        array_type: Box<Type>,
+        array_type: Arc<Type>,
     },
     Struct {
-        pairs: Vec<Type>,
+        pairs: Vec<Arc<Type>>,
     },
     Function {
-        param_type: Box<Type>,
-        return_type: Box<Type>,
+        param_type: Arc<Type>,
+        return_type: Arc<Type>,
     },
     Optional {
-        types: Vec<Type>,
+        type_def: Arc<Type>,
     },
 }
 
@@ -84,11 +84,9 @@ impl Type {
                 let state = param_type.hash_structure(state);
                 return_type.hash_structure(state)
             }
-            Optional { types } => {
+            Optional { type_def } => {
                 let state = combine_hash(state, 1000000012);
-                let mut sorted_types = types.clone();
-                sorted_types.sort();
-                sorted_types.into_iter().fold(state, |acc, ty| ty.hash_structure(acc))
+                type_def.hash_structure(state)
             }
         }
     }

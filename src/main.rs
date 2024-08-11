@@ -47,7 +47,7 @@ fn main() {
     "#;
     let input = r#"
         test: {
-            a: int,
+            a: ?int,
             b: int,
         };
 
@@ -58,9 +58,9 @@ fn main() {
         2.as(a);
 
         if a==2 {
-            3
+            Some(3)
         } else {
-            2
+            None
         }.as(a);
         {
             a: 2,

@@ -28,6 +28,7 @@ pub enum Token {
     Generic,
     Option,
     TNone,
+    TSome,
     TBool,
     TInt,
     TUint,
@@ -331,6 +332,7 @@ impl<'a> Lexer<'a> {
         match ident.as_str() {
             "Self"      => Token::Generic,
             "None"   => Token::TNone,
+            "Some"   => Token::TSome,
             "bool"   => Token::TBool,
             "int"    => Token::TInt,
             "uint"   => Token::TUint,

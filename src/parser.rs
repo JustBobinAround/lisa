@@ -117,6 +117,17 @@ impl<'a> Parser<'a> {
                 self.advance();
                 self.parse_unary(&mut variables, &mut types, op)?.into()
             }
+            Token::TNone => {
+                self.advance();
+                Expr::Option(None).into()
+            }
+            Token::TSome => {
+                self.advance();
+                self.expect(Token::LeftParen, "Expected opening paren and expression after optional")?;
+                let expr = self.parse_expr(variables, types)?;
+                self.expect(Token::RightParen, "Expected opening paren and expression after optional")?;
+                Expr::Option(Some(expr.into())).into()
+            }
             Token::Bool(b) => {
                 self.advance();
                 Expr::Bool(b).into()
@@ -165,70 +176,11 @@ impl<'a> Parser<'a> {
             }
             Token::LeftBracket => {
                 self.advance();
-                let mut var_defs= HashMap::new();
-                while self.current_token!=Token::EOF {
-                    match self.current_token {
-                        Token::RightBracket => {
-                            self.advance();
-                            break;
-                        }
-                        Token::Identifier(ref name) => {
-                            let name = name.clone();
-                            self.advance();
-                            self.expect(Token::Colon, "Expected type definition")?;
-                            let expr = self.parse_expr(variables, types)?;
-                            self.expect(Token::Comma, "Expected comma after type def")?;
-                            var_defs.insert(name.to_string(), expr);
-                        }
-                        _ => {
-                            return Err(ParseError::BadToken(self.current_token.clone(), "Expected expresion or unary operator".to_string()))
-                        }
-                    }
-                }
-                Expr::Struct { pairs: var_defs }.into()
+                self.parse_struct(variables, types)?
             }
             Token::If => {
                 self.advance();
-                let expr = self.parse_expr(variables, types)?;
-                let then_block = self.parse_block(false, variables, types)?.into();
-                let else_block = match self.current_token {
-                    Token::Else => {
-                        self.advance();
-                        Some(self.parse_block(false, variables, types)?)
-                    }
-                    _ => {
-                        None
-                    }
-                };
-
-                match *expr {
-                    Expr::Bool(b) => {
-                        if b {
-                            then_block
-                        } else {
-                            if let Some(else_block) = else_block {
-                                else_block.into()
-                            } else {
-                                Expr::Option(None).into()
-                            }
-                        }
-                    }
-                    _ => {
-                        if let Some(else_block) = else_block {
-                            Expr::If { 
-                                condition: expr, 
-                                then_branch: then_block,
-                                else_branch: else_block.into()
-                            }.into()
-                        } else {
-                            Expr::If { 
-                                condition: expr, 
-                                then_branch: Expr::Option(Some(then_block)).into(), 
-                                else_branch: Expr::Option(None).into()
-                            }.into()
-                        }
-                    }
-                }
+                self.parse_if(variables, types)?
             }
             _ => {
                 return Err(ParseError::BadToken(self.current_token.clone(), "Found wrong token while parsing expression".to_string()))
@@ -243,6 +195,82 @@ impl<'a> Parser<'a> {
             }
             _ => {
                 Ok(left_expr)
+            }
+        }
+    }
+
+    fn parse_struct(
+        &mut self, 
+        variables: &mut HashMap<String, Arc<Expr>>, 
+        types: &mut TypeMap,
+    ) -> Result<Arc<Expr>, ParseError> {
+        let mut var_defs= HashMap::new();
+        while self.current_token!=Token::EOF {
+            match self.current_token {
+                Token::RightBracket => {
+                    self.advance();
+                    break;
+                }
+                Token::Identifier(ref name) => {
+                    let name = name.clone();
+                    self.advance();
+                    self.expect(Token::Colon, "Expected type definition")?;
+                    let expr = self.parse_expr(variables, types)?;
+                    self.expect(Token::Comma, "Expected comma after type def")?;
+                    var_defs.insert(name.to_string(), expr);
+                }
+                _ => {
+                    return Err(ParseError::BadToken(self.current_token.clone(), "Expected expresion or unary operator".to_string()))
+                }
+            }
+        }
+        Ok(Expr::Struct { pairs: var_defs }.into())
+    }
+
+
+    fn parse_if(
+        &mut self, 
+        variables: &mut HashMap<String, Arc<Expr>>, 
+        types: &mut TypeMap,
+    ) -> Result<Arc<Expr>, ParseError> {
+        let expr = self.parse_expr(variables, types)?;
+        let then_block = self.parse_block(false, variables, types)?.into();
+        let else_block = match self.current_token {
+            Token::Else => {
+                self.advance();
+                Some(self.parse_block(false, variables, types)?)
+            }
+            _ => {
+                None
+            }
+        };
+
+        match *expr {
+            Expr::Bool(b) => {
+                if b {
+                    Ok(then_block)
+                } else {
+                    if let Some(else_block) = else_block {
+                        Ok(else_block.into())
+                    } else {
+                        Ok(Expr::Option(None).into())
+                    }
+                }
+            }
+            _ => {
+                if let Some(else_block) = else_block {
+                    Ok(Expr::If { 
+                        condition: expr, 
+                        then_branch: then_block,
+                        else_branch: else_block.into()
+                    }.into())
+                } else {
+                    Ok(Expr::If { 
+                        condition: expr, 
+                        then_branch: Expr::Option(Some(then_block)).into(), 
+                        else_branch: Expr::Option(None).into()
+                    }.into())
+                }
             }
         }
     }
@@ -375,6 +403,11 @@ impl<'a> Parser<'a> {
                 self.advance();
                 Ok(Type::None.into())
             }
+            Token::Option => {
+                self.advance();
+                let t = self.parse_type(types)?;
+                Ok(Type::Optional { type_def: t.into() }.into())
+            }
             Token::TBool => {
                 self.advance();
                 Ok(Type::Bool.into())
@@ -412,9 +445,9 @@ impl<'a> Parser<'a> {
                             let name = name.clone();
                             self.advance();
                             self.expect(Token::Colon, "Expected type definition")?;
-                            let t = self.parse_type(types)?;
+                            let t = self.parse_type(types)?.into();
                             self.expect(Token::Comma, "Expected comma after type def")?;
-                            type_defs.push(Type::TypeDef { name, type_def: t })
+                            type_defs.push(Type::TypeDef { name, type_def: t }.into())
                         }
                         _ => {
                             return Err(ParseError::BadToken(self.current_token.clone(), "Expected expresion or unary operator".to_string()))
