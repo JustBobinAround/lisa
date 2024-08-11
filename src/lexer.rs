@@ -26,6 +26,7 @@ pub enum Operator {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Generic,
+    Option,
     TNone,
     TBool,
     TInt,
@@ -184,6 +185,10 @@ impl<'a> Lexer<'a> {
                     } else {
                         return Token::Operator(Operator::Mod.into());
                     }
+                }
+                '?' => {
+                    self.advance();
+                    return Token::Option;
                 }
                 '!' => {
                     self.advance();

@@ -9,6 +9,7 @@ use super::lexer::Token;
 pub enum Expr {
     Type(Type),
     Bool(bool),
+    Option(Option<Arc<Expr>>),
     Int(i64),
     Uint(u64),
     Char(char),
@@ -31,7 +32,7 @@ pub enum Expr {
     If {
         condition: Arc<Expr>,
         then_branch: Arc<Expr>,
-        else_branch: Option<Arc<Expr>>,
+        else_branch: Arc<Expr>,
     },
     Function {
         param_sig: u64,

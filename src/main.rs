@@ -55,11 +55,16 @@ fn main() {
             @
         };
         5.as(test1);
-        2.as(test2);
-        { a: 2, };
+        2.as(a);
 
         if a==2 {
             3
+        } else {
+            2
+        }.as(a);
+        {
+            a: 2,
+            b: 3,
         };
 
         test2

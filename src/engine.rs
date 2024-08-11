@@ -64,11 +64,7 @@ impl Interpreter {
                 if self.is_true(&condition_value)? {
                     self.evaluate(then_branch)
                 } else {
-                    if let Some(else_branch) = else_branch {
-                        self.evaluate(else_branch)
-                    } else {
-                        Ok(Value::None)
-                    }
+                    self.evaluate(else_branch)
                 }
             }
             Expr::Function { param_sig, return_sig, block } => {

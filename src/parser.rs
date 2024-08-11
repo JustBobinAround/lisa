@@ -190,12 +190,45 @@ impl<'a> Parser<'a> {
             Token::If => {
                 self.advance();
                 let expr = self.parse_expr(variables, types)?;
-                let block = self.parse_block(false, variables, types)?;
-                Expr::If {
-                    condition: expr.into(),
-                    then_branch: block.into(),
-                    else_branch: None
-                }.into()
+                let then_block = self.parse_block(false, variables, types)?.into();
+                let else_block = match self.current_token {
+                    Token::Else => {
+                        self.advance();
+                        Some(self.parse_block(false, variables, types)?)
+                    }
+                    _ => {
+                        None
+                    }
+                };
+
+                match *expr {
+                    Expr::Bool(b) => {
+                        if b {
+                            then_block
+                        } else {
+                            if let Some(else_block) = else_block {
+                                else_block.into()
+                            } else {
+                                Expr::Option(None).into()
+                            }
+                        }
+                    }
+                    _ => {
+                        if let Some(else_block) = else_block {
+                            Expr::If { 
+                                condition: expr, 
+                                then_branch: then_block,
+                                else_branch: else_block.into()
+                            }.into()
+                        } else {
+                            Expr::If { 
+                                condition: expr, 
+                                then_branch: Expr::Option(Some(then_block)).into(), 
+                                else_branch: Expr::Option(None).into()
+                            }.into()
+                        }
+                    }
+                }
             }
             _ => {
                 return Err(ParseError::BadToken(self.current_token.clone(), "Found wrong token while parsing expression".to_string()))
