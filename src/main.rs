@@ -58,6 +58,10 @@ fn main() {
         2.as(test2);
         { a: 2, };
 
+        if a==2 {
+            3
+        };
+
         test2
             .pass_to(4)
             .as(test2);

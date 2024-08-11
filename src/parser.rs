@@ -187,6 +187,16 @@ impl<'a> Parser<'a> {
                 }
                 Expr::Struct { pairs: var_defs }.into()
             }
+            Token::If => {
+                self.advance();
+                let expr = self.parse_expr(variables, types)?;
+                let block = self.parse_block(false, variables, types)?;
+                Expr::If {
+                    condition: expr.into(),
+                    then_branch: block.into(),
+                    else_branch: None
+                }.into()
+            }
             _ => {
                 return Err(ParseError::BadToken(self.current_token.clone(), "Found wrong token while parsing expression".to_string()))
             }
