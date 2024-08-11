@@ -27,8 +27,8 @@ code synthesis techniques along with the possible incorporation of AI.
 
 - **2024-08-10 23:32**: Finished most of parser. Will be starting intermediate
 analyzer tomorrow.
-- **2024-07-29 17:39**: Implemented most of parser. Ran into issue with after
-attempting to add operators to expression parsing.
+- **2024-07-29 20:38**: Added initial engine boilerplate
+- **2024-07-29 20:18**: Finished Most of Expression AST part
 - **2024-07-29 19:21**: Updated Assignment expressions:
 Assignment methods now have access to the prior express within their internal
 data structure.
@@ -57,5 +57,5 @@ Assignment {
     name: "test",
 },
 ```
-- **2024-07-29 20:18**: Finished Most of Expression AST part
-- **2024-07-29 20:38**: Added initial engine boilerplate
+- **2024-07-29 17:39**: Implemented most of parser. Ran into issue with after
+attempting to add operators to expression parsing.
