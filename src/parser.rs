@@ -295,42 +295,10 @@ impl<'a> Parser<'a> {
                 Token::Identifier(ref name) => {
                     let name = name.clone();
                     self.advance();
-                    if *name=="as" {
-                        self.expect(Token::LeftParen, "")?;
-                        match self.current_token {
-                            Token::Identifier(ref name) => {
-                                let name = name.clone();
-                                self.advance();
-                                variables.insert(name.to_string(), left_expr.clone());
-                                self.expect(Token::RightParen, "")?;
-                            }
-                            _ => {
-                                unimplemented!("method call");
-                            }
-                        }
-                    } else if *name=="pass_to" {
-                        self.expect(Token::LeftParen, "")?;
-                        let expr = self.parse_expr(variables, types)?;
-                        left_expr = match *expr {
-                            Expr::Identifier(ref name) => {
-                                let name = name.clone();
-                                match variables.get(&*name) {
-                                    Some(expr) => {
-                                        expr.clone()
-                                    }
-                                    None => {
-                                        return Err(ParseError::BadToken(self.current_token.clone(), "Unknown variable".to_string()))
-                                    }
-                                }
-                            }
-                            _ => {
-                                expr
-                            }
-                        };
-                        self.expect(Token::RightParen, "")?;
-                    } else {
-                        unimplemented!("method call");
-                    }
+                    self.expect(Token::LeftParen, "Expected Leftparen for method call")?;
+                    let right_expr = self.parse_expr(variables, types)?;
+                    left_expr = Expr::MethodCall { name, context: left_expr, param: right_expr, type_def: None }.into();
+                    self.expect(Token::RightParen, "Expected right paren for method call")?;
                 }
                 _ => {
                     unimplemented!("method call");

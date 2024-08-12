@@ -61,7 +61,7 @@ fn main() {
             Some(3)
         } else {
             None
-        }.as(a);
+        }.as(a).test(a);
         {
             a: 2,
             b: 3,

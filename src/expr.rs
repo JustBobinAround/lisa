@@ -41,6 +41,12 @@ pub enum Expr {
     },
     Block(Vec<Arc<Expr>>),
     Param,
+    MethodCall {
+        name: Arc<String>,
+        context: Arc<Expr>,
+        param: Arc<Expr>,
+        type_def: Option<Arc<Type>>
+    }
 }
 
 impl Expr {
