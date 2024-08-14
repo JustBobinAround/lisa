@@ -3,6 +3,9 @@ mod parser;
 mod expr;
 mod type_def;
 mod engine;
+mod static_analyzer;
+
+use std::collections::HashMap;
 
 use engine::Interpreter;
 
@@ -73,12 +76,24 @@ fn main() {
 
         test2==test1;
     "#;
+    let input = r#"
+        'a'.as(test);
+        44.as(test2);
+        test2==test;
+    "#;
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     //let mut interpreter = Interpreter::new();
     //interpreter.interpret(&mut parser).expect("Interpretation failed");
     match parser.parse() {
-        Ok(ast) => println!("{:#?}", ast),
+        Ok(ast) =>  {
+            let mut env = HashMap::new();
+            let t = ast.type_check(&mut env);
+            match t {
+                Ok(t) => println!("{:#?}", t),
+                Err(e) => println!("Error: {:?}", e),
+            }
+        },
         Err(e) => println!("Error: {:?}", e),
     }
 }
