@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::type_def::Type;
@@ -35,8 +36,8 @@ pub enum Expr {
         else_branch: Arc<Expr>,
     },
     Function {
-        param_sig: u64,
-        return_sig: u64,
+        param_sig: Arc<Type>,
+        return_sig: Arc<Type>,
         block: Arc<Expr>,
     },
     Block(Vec<Arc<Expr>>),
@@ -101,14 +102,18 @@ impl Expr {
                 }
             }
             Expr::BinaryOp { left, op, right } => {
-                let left_type = left.type_check(env)?;
-                let right_type = right.type_check(env)?;
-                // Type checking logic for binary operations
-                match (op.as_ref(), left_type, right_type) {
-                    // Add type checking rules for each operator
-                    // Example for a simple integer addition operator
-                    (_, Type::Int, Type::Int) => Ok(Type::Int),
-                    _ => Err("Type mismatch in binary operation.".to_string()),
+                let mut left_type = left.type_check(env)?;
+                if let Some(reducable_type) = left_type.reduce() {
+                    left_type = reducable_type.clone().deref().clone(); //TODO fix
+                }
+                let mut right_type = right.type_check(env)?;
+                if let Some(reducable_type) = right_type.reduce() {
+                    right_type = reducable_type.clone().deref().clone(); //TODO fix
+                }
+                if left_type==right_type {
+                    Ok(left_type)
+                } else {
+                    Err("Type mismatch in binary operation.".to_string())
                 }
             }
             Expr::UnaryOp { op, expr } => {
@@ -136,13 +141,19 @@ impl Expr {
             }
             Expr::Function {
                 param_sig,
-                return_sig,
+                ref return_sig,
                 block,
             } => {
-                Ok(Type::Function {
-                    param_type: Arc::new(Type::Generic), // Placeholder for now
-                    return_type: Arc::new(Type::Generic), // Placeholder for now
-                })
+                let mut env = HashMap::new();
+                let block_type = block.type_check(&mut env)?;
+                if block_type != **return_sig{
+                    Err("Function block does not return correct type".to_string())
+                } else {
+                    Ok(Type::Function {
+                        param_type: param_sig.clone(), // Placeholder for now
+                        return_type: return_sig.clone(), // Placeholder for now
+                    })
+                }
             }
             Expr::Block(exprs) => {
                 let mut last_type = Type::None;

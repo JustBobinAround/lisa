@@ -77,9 +77,20 @@ fn main() {
         test2==test1;
     "#;
     let input = r#"
-        'a'.as(test);
-        44.as(test2);
-        test2==test;
+        type2: {
+            a: char,
+        };
+        type1: {
+            a: int,
+            b: type2,
+        };
+        |int -> type1| {
+            {a:2, b:{a:'a',},}
+        }.as(test);
+
+        |char-> int| {
+            0
+        }.as(test2);
     "#;
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);

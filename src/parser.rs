@@ -166,9 +166,9 @@ impl<'a> Parser<'a> {
             }
             Token::FnTypes => {
                 self.advance();
-                let pt = self.parse_type(types)?.get_sig();
+                let pt = self.parse_type(types)?;
                 self.expect(Token::Arrow, "Expected arrow function")?;
-                let rt = self.parse_type(types)?.get_sig();
+                let rt = self.parse_type(types)?;
                 self.expect(Token::FnTypes, "Expected func param close")?;
                 let block = self.parse_block(false, &mut HashMap::new(), types)?;
 
@@ -425,7 +425,9 @@ impl<'a> Parser<'a> {
                 Ok(Type::Struct { pairs: type_defs }.into())
             }
             Token::Identifier(ref name) => {
-                if let Some(t) = types.name_map.get(&**name) {
+                let name = name.clone();
+                self.advance();
+                if let Some(t) = types.name_map.get(&*name) {
                     Ok(t.clone())
                 } else {
                     return Err(ParseError::BadToken(self.current_token.clone(), "Expected expresion or unary operator".to_string()));

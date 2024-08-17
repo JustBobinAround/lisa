@@ -1,6 +1,6 @@
 use std::{sync::Arc, ops::Deref};
 
-#[derive(Debug, PartialEq, Ord, Eq, PartialOrd, Clone)]
+#[derive(Debug, Ord, Eq, PartialOrd, Clone)]
 pub enum Type {
     TypeDef {
         name: Arc<String>,
@@ -29,10 +29,26 @@ pub enum Type {
     },
 }
 
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_sig() == other.get_sig()
+    }
+}
 impl Type {
+    pub fn reduce(&self) -> Option<Arc<Type>> {
+        match self {
+            Type::Function { param_type, return_type } => {
+                Some(return_type.clone())
+            }
+            _ => {
+                None
+            }
+        }
+    }
     pub fn get_sig(&self) -> u64 {
         self.hash_structure(0)
     }
+
 
     fn hash_structure(&self, state: u64) -> u64 {
         use Type::*;
