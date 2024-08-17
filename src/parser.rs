@@ -300,6 +300,27 @@ impl<'a> Parser<'a> {
                     left_expr = Expr::MethodCall { name, context: left_expr, param: right_expr, type_def: None }.into();
                     self.expect(Token::RightParen, "Expected right paren for method call")?;
                 }
+                Token::Assign => {
+                    self.advance();
+                    self.expect(Token::LeftParen, "Expected Leftparen for method call")?;
+                    let right_expr = self.parse_expr(variables, types)?;
+                    left_expr = Expr::Assign {context: left_expr, param: right_expr, type_def: None }.into();
+                    self.expect(Token::RightParen, "Expected right paren for method call")?;
+                }
+                Token::ImplAssign => {
+                    self.advance();
+                    self.expect(Token::LeftParen, "Expected Leftparen for method call")?;
+                    let right_expr = self.parse_expr(variables, types)?;
+                    left_expr = Expr::Assign {context: left_expr, param: right_expr, type_def: None }.into();
+                    self.expect(Token::RightParen, "Expected right paren for method call")?;
+                }
+                Token::PassTo => {
+                    self.advance();
+                    self.expect(Token::LeftParen, "Expected Leftparen for method call")?;
+                    let right_expr = self.parse_expr(variables, types)?;
+                    left_expr = Expr::PassTo {context: left_expr, param: right_expr, type_def: None }.into();
+                    self.expect(Token::RightParen, "Expected right paren for method call")?;
+                }
                 _ => {
                     unimplemented!("method call");
                 }

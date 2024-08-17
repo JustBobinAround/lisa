@@ -47,6 +47,16 @@ pub enum Expr {
         context: Arc<Expr>,
         param: Arc<Expr>,
         type_def: Option<Arc<Type>>
+    },
+    Assign {
+        context: Arc<Expr>,
+        param: Arc<Expr>,
+        type_def: Option<Arc<Type>>
+    },
+    PassTo{
+        context: Arc<Expr>,
+        param: Arc<Expr>,
+        type_def: Option<Arc<Type>>
     }
 }
 type TypeEnv = HashMap<Arc<String>, Type>;
@@ -102,16 +112,10 @@ impl Expr {
                 }
             }
             Expr::BinaryOp { left, op, right } => {
-                let mut left_type = left.type_check(env)?;
-                if let Some(reducable_type) = left_type.reduce() {
-                    left_type = reducable_type.clone().deref().clone(); //TODO fix
-                }
-                let mut right_type = right.type_check(env)?;
-                if let Some(reducable_type) = right_type.reduce() {
-                    right_type = reducable_type.clone().deref().clone(); //TODO fix
-                }
+                let left_type = Type::reduce(left.type_check(env)?.into());
+                let right_type = Type::reduce(right.type_check(env)?.into());
                 if left_type==right_type {
-                    Ok(left_type)
+                    Ok(left_type.clone().deref().clone()) // TODO <-- fix this
                 } else {
                     Err("Type mismatch in binary operation.".to_string())
                 }
@@ -170,30 +174,54 @@ impl Expr {
                 type_def,
             } => {
                 let context_type = context.type_check(env)?;
-                if name.as_str() == "as" {
-                    match **param {
-                        Expr::Identifier(ref var_name) => {
-                            env.insert(var_name.clone(), context_type.clone());
-                            Ok(context_type)
-                        }
-                        _ => {
-                            return Err(format!(
-                                "Invalid parameter for 'as': expected identifier, found {:?}",
-                                param
-                            ));
-                        }
+                assert!(name.as_str()!="as", "as keyword found as method call");
+                let param = context.type_check(env)?;
+                match type_def {
+                    Some(t) => Ok(t.as_ref().clone()),
+                    None => Err(format!(
+                        "Method '{}' not found in context type '{:?}'",
+                        name, context_type
+                    )),
+                }
+            },    
+            Expr::Assign { context, param, type_def } => {
+                let context_type = context.type_check(env)?;
+                match **param {
+                    Expr::Identifier(ref var_name) => {
+                        env.insert(var_name.clone(), context_type.clone());
+                        Ok(context_type)
                     }
-                } else {
-                    let param = context.type_check(env)?;
-                    match type_def {
-                        Some(t) => Ok(t.as_ref().clone()),
-                        None => Err(format!(
-                            "Method '{}' not found in context type '{:?}'",
-                            name, context_type
-                        )),
+                    _ => {
+                        return Err(format!(
+                            "Invalid parameter for 'as': expected identifier, found {:?}",
+                            param
+                        ));
                     }
                 }
-            }        
+            }
+            Expr::PassTo { context, param, type_def } => {
+                let context_type = Type::reduce(context.type_check(env)?.into());
+                let param_type = param.type_check(env)?;
+                match param_type {
+                    Type::Function { param_type, return_type } => {
+                        let param_type = Type::reduce(param_type);
+                        if param_type==context_type {
+                            Ok(return_type.clone().deref().clone())
+                        } else {
+                            Err(format!(
+                                "Invalid parameter type for 'pass_to': expected function, found {:?}",
+                                param
+                            ))
+                        }
+                    }
+                    _ => {
+                        Err(format!(
+                            "Invalid parameter for 'pass_to': expected function, found {:?}",
+                            param
+                        ))
+                    }
+                }
+            }
         }
     }
     pub fn primative_str(&self) -> &'static str{

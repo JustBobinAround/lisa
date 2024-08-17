@@ -35,13 +35,13 @@ impl PartialEq for Type {
     }
 }
 impl Type {
-    pub fn reduce(&self) -> Option<Arc<Type>> {
-        match self {
+    pub fn reduce(t: Arc<Type>) -> Arc<Type> {
+        match &*t {
             Type::Function { param_type, return_type } => {
-                Some(return_type.clone())
+                return_type.clone()
             }
             _ => {
-                None
+                t
             }
         }
     }

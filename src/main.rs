@@ -77,20 +77,13 @@ fn main() {
         test2==test1;
     "#;
     let input = r#"
-        type2: {
-            a: char,
-        };
-        type1: {
-            a: int,
-            b: type2,
-        };
-        |int -> type1| {
-            {a:2, b:{a:'a',},}
+        
+
+        |int -> int| {
+            0
         }.as(test);
 
-        |char-> int| {
-            0
-        }.as(test2);
+    2.pass_to(test);
     "#;
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
@@ -98,6 +91,7 @@ fn main() {
     //interpreter.interpret(&mut parser).expect("Interpretation failed");
     match parser.parse() {
         Ok(ast) =>  {
+        println!("{:#?}", ast);
             let mut env = HashMap::new();
             let t = ast.type_check(&mut env);
             match t {

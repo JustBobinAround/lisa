@@ -43,6 +43,9 @@ pub enum Token {
     Float(f64),
     String(Arc<String>),
     Identifier(Arc<String>),
+    Assign,
+    ImplAssign,
+    PassTo,
     If,
     Else,
     Operator(Arc<Operator>),
@@ -330,7 +333,7 @@ impl<'a> Lexer<'a> {
             }
         }
         match ident.as_str() {
-            "Self"      => Token::Generic,
+            "Self"   => Token::Generic,
             "None"   => Token::TNone,
             "Some"   => Token::TSome,
             "bool"   => Token::TBool,
@@ -343,6 +346,9 @@ impl<'a> Lexer<'a> {
             "else" => Token::Else,
             "true" => Token::Bool(true),
             "false" => Token::Bool(false),
+            "as" => Token::Assign,
+            "impl_as" => Token::ImplAssign,
+            "pass_to" => Token::PassTo,
             _ => Token::Identifier(Arc::new(ident)),
         }
     }
