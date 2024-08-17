@@ -1,16 +1,4 @@
-mod lexer;
-mod parser;
-mod expr;
-mod type_def;
-mod engine;
-mod static_analyzer;
-
 use std::collections::HashMap;
-
-use engine::Interpreter;
-
-use crate::lexer::Lexer;
-use crate::parser::Parser;
 
 fn main() {
     let input = r#"
@@ -85,20 +73,4 @@ fn main() {
 
     2.pass_to(test);
     "#;
-    let lexer = Lexer::new(input);
-    let mut parser = Parser::new(lexer);
-    //let mut interpreter = Interpreter::new();
-    //interpreter.interpret(&mut parser).expect("Interpretation failed");
-    match parser.parse() {
-        Ok(ast) =>  {
-        println!("{:#?}", ast);
-            let mut env = HashMap::new();
-            let t = ast.type_check(&mut env);
-            match t {
-                Ok(t) => println!("{:#?}", t),
-                Err(e) => println!("Error: {:?}", e),
-            }
-        },
-        Err(e) => println!("Error: {:?}", e),
-    }
 }
