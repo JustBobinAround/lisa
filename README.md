@@ -25,6 +25,8 @@ code synthesis techniques along with the possible incorporation of AI.
 
 ### Change Log
 
+- **2024-08-16 21:00**: Added to type checking system. I think I need to change `as` and
+  `pass_to` function calls to keywords so that users can overload their operation.
 - **2024-08-10 23:32**: Finished most of parser. Will be starting intermediate
 analyzer tomorrow.
 - **2024-07-29 20:38**: Added initial engine boilerplate
