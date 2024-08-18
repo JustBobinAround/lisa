@@ -17,74 +17,48 @@ use std::ops::Deref;
 use super::BasicBlock;
 use super::Type;
 
-/// Wrapper for a LLVM Value Reference.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Value<'llvm>(LLVMValueRef, PhantomData<&'llvm ()>);
 
 impl<'llvm> Value<'llvm> {
-    /// Create a new Value instance.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `value_ref` is a null pointer.
     pub(super) fn new(value_ref: LLVMValueRef) -> Self {
         assert!(!value_ref.is_null());
         Value(value_ref, PhantomData)
     }
 
-    /// Get the raw LLVM value reference.
     #[inline]
     pub(super) fn value_ref(&self) -> LLVMValueRef {
         self.0
     }
 
-    /// Get the LLVM value kind for the given value reference.
     pub(super) fn kind(&self) -> LLVMValueKind {
         unsafe { LLVMGetValueKind(self.value_ref()) }
     }
 
-    /// Check if value is `function` type.
     pub(super) fn is_function(&self) -> bool {
         let cast = unsafe { LLVMIsAFunction(self.value_ref()) };
         !cast.is_null()
     }
 
-    /// Check if value is `phinode` type.
     pub(super) fn is_phinode(&self) -> bool {
         let cast = unsafe { LLVMIsAPHINode(self.value_ref()) };
         !cast.is_null()
     }
 
-    /// Dump the LLVM Value to stdout.
     pub fn dump(&self) {
         unsafe { LLVMDumpValue(self.value_ref()) };
     }
 
-    /// Get a type reference representing for the given value reference.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns a `null` pointer.
     pub fn type_of(&self) -> Type<'llvm> {
         let type_ref = unsafe { LLVMTypeOf(self.value_ref()) };
         Type::new(type_ref)
     }
 
-    /// Set the name for the given value reference.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns a `null` pointer.
     pub fn set_name(&self, name: &str) {
         unsafe { LLVMSetValueName2(self.value_ref(), name.as_ptr().cast(), name.len()) };
     }
 
-    /// Get the name for the given value reference.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns a `null` pointer.
     pub fn get_name(&self) -> &'llvm str {
         let name = unsafe {
             let mut len: libc::size_t = 0;
@@ -94,23 +68,19 @@ impl<'llvm> Value<'llvm> {
             CStr::from_ptr(name)
         };
 
-        // TODO: Does this string live for the time of the LLVM context?!
         name.to_str()
             .expect("Expected valid UTF8 string from LLVM API")
     }
 
-    /// Check if value is of `f64` type.
     pub fn is_f64(&self) -> bool {
         self.type_of().kind() == LLVMTypeKind::LLVMDoubleTypeKind
     }
 
-    /// Check if value is of integer type.
     pub fn is_int(&self) -> bool {
         self.type_of().kind() == LLVMTypeKind::LLVMIntegerTypeKind
     }
 }
 
-/// Wrapper for a LLVM Value Reference specialized for contexts where function values are needed.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct FnValue<'llvm>(Value<'llvm>);
@@ -123,11 +93,6 @@ impl<'llvm> Deref for FnValue<'llvm> {
 }
 
 impl<'llvm> FnValue<'llvm> {
-    /// Create a new FnValue instance.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `value_ref` is a null pointer.
     pub(super) fn new(value_ref: LLVMValueRef) -> Self {
         let value = Value::new(value_ref);
         debug_assert!(
@@ -138,28 +103,16 @@ impl<'llvm> FnValue<'llvm> {
         FnValue(value)
     }
 
-    /// Get a type reference representing the function type (return + args) of the given function
-    /// value.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns a `null` pointer.
     pub fn fn_type(&self) -> Type<'llvm> {
         // https://github.com/llvm/llvm-project/issues/72798
         let type_ref = unsafe { LLVMGlobalGetValueType(self.value_ref()) };
         Type::new(type_ref)
     }
 
-    /// Get the number of function arguments for the given function value.
     pub fn args(&self) -> usize {
         unsafe { LLVMCountParams(self.value_ref()) as usize }
     }
 
-    /// Get a value reference for the function argument at index `idx`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns a `null` pointer or indexed out of bounds.
     pub fn arg(&self, idx: usize) -> Value<'llvm> {
         assert!(idx < self.args());
 
@@ -167,19 +120,16 @@ impl<'llvm> FnValue<'llvm> {
         Value::new(value_ref)
     }
 
-    /// Get the number of Basic Blocks for the given function value.
     pub fn basic_blocks(&self) -> usize {
         unsafe { LLVMCountBasicBlocks(self.value_ref()) as usize }
     }
 
-    /// Append a Basic Block to the end of the function value.
     pub fn append_basic_block(&self, bb: BasicBlock<'llvm>) {
         unsafe {
             LLVMAppendExistingBasicBlock(self.value_ref(), bb.bb_ref());
         }
     }
 
-    /// Verify that the given function is valid.
     pub fn verify(&self) -> bool {
         unsafe {
             LLVMVerifyFunction(
@@ -190,7 +140,6 @@ impl<'llvm> FnValue<'llvm> {
     }
 }
 
-/// Wrapper for a LLVM Value Reference specialized for contexts where phi values are needed.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct PhiValue<'llvm>(Value<'llvm>);
@@ -203,11 +152,6 @@ impl<'llvm> Deref for PhiValue<'llvm> {
 }
 
 impl<'llvm> PhiValue<'llvm> {
-    /// Create a new PhiValue instance.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `value_ref` is a null pointer.
     pub(super) fn new(value_ref: LLVMValueRef) -> Self {
         let value = Value::new(value_ref);
         debug_assert!(
@@ -218,7 +162,6 @@ impl<'llvm> PhiValue<'llvm> {
         PhiValue(value)
     }
 
-    /// Add an incoming value to the end of a PHI list.
     pub fn add_incoming(&self, ival: Value<'llvm>, ibb: BasicBlock<'llvm>) {
         debug_assert_eq!(
             ival.type_of().kind(),

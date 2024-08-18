@@ -14,23 +14,16 @@ use std::marker::PhantomData;
 use super::{Error, Module};
 use crate::SmallCStr;
 
-/// Marker trait to constrain function signatures that can be looked up in the JIT.
 pub trait JitFn {}
 
 impl JitFn for unsafe extern "C" fn() -> i64 {}
 
-/// Wrapper for a LLVM [LLJIT](https://www.llvm.org/docs/ORCv2.html#lljit-and-lllazyjit).
 pub struct LLJit {
     jit: LLVMOrcLLJITRef,
     dylib: LLVMOrcJITDylibRef,
 }
 
 impl LLJit {
-    /// Create a new LLJit instance.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns a `null` pointer or an error.
     pub fn new() -> LLJit {
         let (jit, dylib) = unsafe {
             let mut jit = std::ptr::null_mut();
@@ -52,12 +45,6 @@ impl LLJit {
         LLJit { jit, dylib }
     }
 
-    /// Add an LLVM IR module to the JIT. Return a [`ResourceTracker`], which when dropped, will
-    /// remove the code of the LLVM IR module from the JIT.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns a `null` pointer or an error.
     pub fn add_module(&self, module: Module) -> ResourceTracker<'_> {
         let tsmod = module.into_raw_thread_safe_module();
 
@@ -75,11 +62,6 @@ impl LLJit {
         ResourceTracker::new(rt)
     }
 
-    /// Find the symbol with the name `sym` in the JIT.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the symbol is not found in the JIT.
     pub fn find_symbol<F: JitFn>(&self, sym: &str) -> F {
         let sym =
             SmallCStr::try_from(sym).expect("Failed to convert 'sym' argument to small C string!");
@@ -97,11 +79,6 @@ impl LLJit {
         }
     }
 
-    /// Enable lookup of dynamic symbols available in the current process from the JIT.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns an error.
     pub fn enable_process_symbols(&self) {
         unsafe {
             let mut proc_syms_gen: LLVMOrcDefinitionGeneratorRef = std::ptr::null_mut();
@@ -120,16 +97,11 @@ impl LLJit {
         }
     }
 
-    /// Return the global prefix character according to the LLJITs data layout.
     fn global_prefix(&self) -> libc::c_char {
         unsafe { LLVMOrcLLJITGetGlobalPrefix(self.jit) }
     }
 }
 
-/// A resource handle for code added to an [`LLJit`] instance.
-///
-/// When a `ResourceTracker` handle is dropped, the code corresponding to the handle will be
-/// removed from the JIT.
 pub struct ResourceTracker<'jit>(LLVMOrcResourceTrackerRef, PhantomData<&'jit ()>);
 
 impl<'jit> ResourceTracker<'jit> {

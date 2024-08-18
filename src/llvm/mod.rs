@@ -1,13 +1,3 @@
-//! Safe wrapper around the LLVM C API.
-//!
-//! References returned from the LLVM API are tied to the `'llvm` lifetime which is bound to the
-//! context where the objects are created in.
-//! We do not offer wrappers to remove or delete any objects in the context and therefore all the
-//! references will be valid for the liftime of the context.
-//!
-//! For the scope of this tutorial we mainly use assertions to validate the results from the LLVM
-//! API calls.
-
 use llvm_sys::{
     core::LLVMShutdown,
     error::{LLVMDisposeErrorMessage, LLVMErrorRef, LLVMGetErrorMessage},
@@ -57,7 +47,6 @@ impl Drop for Error<'_> {
     }
 }
 
-/// Initialize native target for corresponding to host (useful for jitting).
 pub fn initialize_native_taget() {
     unsafe {
         assert_eq!(LLVM_InitializeNativeTarget(), 0);
@@ -66,7 +55,6 @@ pub fn initialize_native_taget() {
     }
 }
 
-/// Deallocate and destroy all "ManagedStatic" variables.
 pub fn shutdown() {
     unsafe {
         LLVMShutdown();

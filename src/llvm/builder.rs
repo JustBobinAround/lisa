@@ -13,7 +13,6 @@ use std::marker::PhantomData;
 
 use super::{BasicBlock, FnValue, Module, PhiValue, Type, Value};
 
-// Definition of LLVM C API functions using our `repr(transparent)` types.
 extern "C" {
     fn LLVMBuildCall2(
         arg1: LLVMBuilderRef,
@@ -25,18 +24,12 @@ extern "C" {
     ) -> LLVMValueRef;
 }
 
-/// Wrapper for a LLVM IR Builder.
 pub struct IRBuilder<'llvm> {
     builder: LLVMBuilderRef,
     _ctx: PhantomData<&'llvm ()>,
 }
 
 impl<'llvm> IRBuilder<'llvm> {
-    /// Create a new LLVM IR Builder with the `module`s context.
-    ///
-    /// # Panics
-    ///
-    /// Panics if creating the IR Builder fails.
     pub fn with_ctx(module: &'llvm Module) -> IRBuilder<'llvm> {
         let builder = unsafe { LLVMCreateBuilderInContext(module.ctx()) };
         assert!(!builder.is_null());
@@ -47,18 +40,12 @@ impl<'llvm> IRBuilder<'llvm> {
         }
     }
 
-    /// Position the IR Builder at the end of the given Basic Block.
     pub fn pos_at_end(&self, bb: BasicBlock<'llvm>) {
         unsafe {
             LLVMPositionBuilderAtEnd(self.builder, bb.bb_ref());
         }
     }
 
-    /// Get the BasicBlock the IRBuilder currently inputs into.
-    ///
-    /// # Panics
-    ///
-    /// Panics if LLVM API returns a `null` pointer.
     pub fn get_insert_block(&self) -> BasicBlock<'llvm> {
         let bb_ref = unsafe { LLVMGetInsertBlock(self.builder) };
         assert!(!bb_ref.is_null());
