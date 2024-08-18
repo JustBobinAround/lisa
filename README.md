@@ -25,7 +25,11 @@ code synthesis techniques along with the possible incorporation of AI.
 
 ### Change Log
 
-- **2024-08-17 14:12**: Since I now have a rough idea of how I want the language,
+- **2024-08-17 23:30**: Grabbed some llvm boilerplate from
+  [https://github.com/johannst/llvm-kaleidoscope-rs](https://github.com/johannst/llvm-kaleidoscope-rs).
+  Will still probably have to fully rewrite, but it helped a lot!
+- **2024-08-17 14:12**: Since I now have a rough idea of how I want the
+  language,
 I'm going to start rewriting for llvm before things get out of hand.
 - **2024-08-16 21:00**: Added to type checking system. I think I need to change `as` and
   `pass_to` function calls to keywords so that users can overload their operation.
