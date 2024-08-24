@@ -25,6 +25,8 @@ code synthesis techniques along with the possible incorporation of AI.
 
 ### Change Log
 
+- **2024-08-24 12:05**: Deciding to build llvm-ir as `.ll` file instead of bindings.
+It creates less dependency hell, and is easier for me to understand.
 - **2024-08-17 23:30**: Grabbed some llvm boilerplate from
   [https://github.com/johannst/llvm-kaleidoscope-rs](https://github.com/johannst/llvm-kaleidoscope-rs).
   Will still probably have to fully rewrite, but it helped a lot!
