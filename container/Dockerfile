@@ -9,6 +9,7 @@ RUN apt update && \
       build-essential \
       cargo \
       llvm-16-dev \
+      clang-16 \
       libpolly-16-dev \
       libz-dev \
       libzstd-dev \
