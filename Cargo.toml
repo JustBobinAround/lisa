@@ -3,11 +3,5 @@ name = "lisa_lang"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[features]
-llvm = ["llvm-sys"]
-
-
 [dependencies]
 libc     = "0.2"
-llvm-sys = {version = "160.0", features = ["strict-versioning"], optional=true}

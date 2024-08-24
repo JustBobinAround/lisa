@@ -2,12 +2,6 @@ use std::convert::TryFrom;
 mod lexer;
 mod parser;
 
-#[cfg(feature = "llvm")]
-mod llvm;
-#[cfg(feature = "llvm")]
-mod codegen;
-#[cfg(feature = "llvm")]
-use codegen::Codegen;
 
 use lexer::{Lexer, Token};
 use parser::{Parser, PrototypeAST};
@@ -17,65 +11,6 @@ fn parsing_loop<I>(mut parser: Parser<I>)
 where
     I: Iterator<Item = char>,
 {
-    #[cfg(feature = "llvm")]
-    {
-        let mut module = llvm::Module::new();
-
-        // Create a new JIT, based on the LLVM LLJIT.
-        let jit = llvm::LLJit::new();
-
-        // Enable lookup of dynamic symbols in the current process from the JIT.
-        jit.enable_process_symbols();
-
-        // Keep track of prototype names to their respective ASTs.
-        //
-        // This is useful since we jit every function definition into its own LLVM module.
-        // To allow calling functions defined in previous LLVM modules we keep track of their
-        // prototypes and generate IR for their declarations when they are called from another module.
-        let mut fn_protos: HashMap<String, PrototypeAST> = HashMap::new();
-
-        // When adding an IR module to the JIT, it will hand out a ResourceTracker. When the
-        // ResourceTracker is dropped, the code generated from the corresponding module will be removed
-        // from the JIT.
-        //
-        // For each function we want to keep the code generated for the last definition, hence we need
-        // to keep their ResourceTracker alive.
-        let mut fn_jit_rt: HashMap<String, llvm::ResourceTracker> = HashMap::new();
-
-        loop {
-            match parser.current_token() {
-                Token::EOF=> break,
-                _ => match parser.parse_top_level_expr() {
-                    Ok(func) => {
-                        println!(">>>{:#?}", func);
-                        #[cfg(feature = "llvm")]
-                        {
-                            println!("Parse top-level expression");
-                            if let Ok(func) = Codegen::compile(&module, &mut fn_protos, Either::B(&func)) {
-                                func.dump();
-
-                                // Add module to the JIT. Code will be removed when `_rt` is dropped.
-                                let _rt = jit.add_module(module);
-
-                                // Initialize a new module.
-                                module = llvm::Module::new();
-
-                                // Call the top level expression.
-                                let fp = jit.find_symbol::<unsafe extern "C" fn() -> i64>("__anon_expr");
-                                unsafe {
-                                    println!("Evaluated to {}", fp());
-                                }
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!("Error: {:?}", err);
-                        parser.next_token();
-                    }
-                },
-            }
-        }
-    }
 
 }
 
@@ -85,16 +20,7 @@ where
 {
     let mut parser = Parser::new(lexer);
 
-    #[cfg(feature = "llvm")]
-    {
-        llvm::initialize_native_taget();
-    }
-
     parsing_loop(parser);
-
-
-    #[cfg(feature = "llvm")]
-    llvm::shutdown();
 }
 
 
