@@ -24,6 +24,8 @@ pub enum Token {
     RParen,
     LBrace,
     RBrace,
+    SemiCol,
+    EvalPrint
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -116,6 +118,14 @@ where
             }
             '\'' => {
                 self.parse_char()
+            }
+            ';' => {
+                self.advance();
+                Token::SemiCol
+            }
+            '$' => {
+                self.advance();
+                Token::EvalPrint
             }
             '0'..='9' => return self.parse_number(last_char),
             'a'..='z' | 'A'..='Z' | '_' => return self.parse_ident(last_char),

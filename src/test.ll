@@ -6,7 +6,7 @@ declare i32 @printf(i8*, ...)
 ; Function to add two integers
 define i32 @add(i32 %a, i32 %b) {
 entry:
-  %sum = add i32 %a, %b
+  %sum = alloca i32, align 4
   ret i32 %sum
 }
 
